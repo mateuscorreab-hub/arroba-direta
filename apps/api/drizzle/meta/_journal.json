@@ -8,6 +8,13 @@
       "when": 1791938355175,
       "tag": "0000_good_korg",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791942823304,
+      "tag": "0001_slippery_blindfold",
+      "breakpoints": true
     }
   ]
 }

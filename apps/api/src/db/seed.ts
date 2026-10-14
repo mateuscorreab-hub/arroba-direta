@@ -1,4 +1,5 @@
 /** Popula o banco local com dados de exemplo para desenvolvimento. */
+import { and, eq, isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import * as schema from './schema.js';
@@ -9,11 +10,39 @@ const pool = new pg.Pool({
 });
 const db = drizzle(pool, { schema });
 
+// DDD 20 não existe: ninguém consegue entrar pelo login nas contas verificadas de exemplo.
+const TELEFONE_JOAO = '+5520999990001';
+const TELEFONE_ANA = '+5520999990002';
+
+// Bancos populados antes usavam telefones válidos: troca pelos novos para não duplicar contas e lotes.
+// Depois da troca o telefone antigo é uma conta comum de quem entrar com ele, e não pode ser trocado de novo.
+for (const [antigo, novo] of [
+  ['+5567999990001', TELEFONE_JOAO],
+  ['+5565999990002', TELEFONE_ANA],
+]) {
+  const [jaTrocado] = await db
+    .select({ id: schema.usuarios.id })
+    .from(schema.usuarios)
+    .where(eq(schema.usuarios.telefone, novo));
+  if (jaTrocado) continue;
+  const [trocado] = await db
+    .update(schema.usuarios)
+    .set({ telefone: novo })
+    .where(eq(schema.usuarios.telefone, antigo))
+    .returning({ id: schema.usuarios.id });
+  if (trocado) {
+    await db
+      .update(schema.sessoes)
+      .set({ revogadaEm: new Date() })
+      .where(and(eq(schema.sessoes.usuarioId, trocado.id), isNull(schema.sessoes.revogadaEm)));
+  }
+}
+
 const [joao, ana] = await db
   .insert(schema.usuarios)
   .values([
-    { telefone: '+5567999990001', nome: 'João da Silva', verificado: true, municipio: 'Campo Grande', uf: 'MS' },
-    { telefone: '+5565999990002', nome: 'Ana Souza', verificado: true, municipio: 'Rondonópolis', uf: 'MT' },
+    { telefone: TELEFONE_JOAO, nome: 'João da Silva', verificado: true, municipio: 'Campo Grande', uf: 'MS' },
+    { telefone: TELEFONE_ANA, nome: 'Ana Souza', verificado: true, municipio: 'Rondonópolis', uf: 'MT' },
   ])
   .onConflictDoNothing()
   .returning();

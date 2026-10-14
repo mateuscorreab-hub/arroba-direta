@@ -37,14 +37,17 @@ pnpm --filter @arroba/api test:e2e   # testes da API contra o banco
 
 ## O que já funciona
 
-- API: `GET /saude`, `GET /lotes` (filtros por categoria, UF, raça, quantidade, preço e raio em km), `GET /lotes/:id`, `POST /lotes` (validação com mensagens em português).
-- Banco: tabelas de usuários, lotes, mídias, propostas, pedidos, documentos (GTA, nota, atestado, ticket de balança) e avaliações.
+- API: `GET /saude`, `GET /lotes` (filtros por categoria, UF, raça, quantidade, preço e raio em km), `GET /lotes/:id`, `POST /lotes` (exige login e perfil completo; validação com mensagens em português).
+- Login pelo celular: `POST /auth/codigo` gera um código de 6 números (vale 10 minutos, até 5 pedidos por hora por telefone), `POST /auth/entrar` troca o código por uma sessão de 90 dias (5 tentativas erradas bloqueiam o código) e `POST /auth/sair` encerra a sessão. As rotas logadas usam `Authorization: Bearer <token>`.
+- Perfil: `GET /eu` e `PATCH /eu` (nome, município e estado). Só quem tem o perfil completo pode anunciar.
+- Envio do código: por enquanto só existe a versão de teste (`CODIGO_MODO=teste`, já configurada no Render), em que o código aparece na tela em vez de chegar por SMS. Nela qualquer pessoa entra com qualquer número, então não use dados reais.
+- Banco: tabelas de usuários, sessões, códigos de login, lotes, mídias, propostas, pedidos, documentos (GTA, nota, atestado, ticket de balança) e avaliações.
 - Site: página inicial, lista de lotes com filtros e página de cada lote.
 - App: abas Buscar (lista com filtro por categoria), Anunciar (formulário validado) e Perfil, e tela de detalhe do lote.
 
 ## Próximos passos
 
-1. Login por código no celular (SMS/WhatsApp) e verificação de documento.
+1. Enviar o código de login por SMS/WhatsApp (`CODIGO_MODO=sms`), com limite de pedidos por IP antes de ligar, e verificação de documento.
 2. Fotos e vídeo no anúncio, localização pelo GPS, rascunho offline.
 3. Chat e propostas entre comprador e vendedor.
 4. Pagamento protegido (Pix com custódia e split) via provedor de pagamento.

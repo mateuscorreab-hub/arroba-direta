@@ -37,13 +37,41 @@ const criadoEm = () => timestamp('criado_em', { withTimezone: true }).notNull().
 
 export const usuarios = pgTable('usuarios', {
   id: uuid('id').primaryKey().defaultRandom(),
-  telefone: text('telefone').notNull().unique(),
-  nome: text('nome').notNull(),
+  telefone: text('telefone').notNull().unique(), // E.164: +55DD9XXXXXXXX
+  // Nome, município e UF ficam vazios até o usuário completar o perfil após o primeiro login.
+  nome: text('nome'),
   documento: text('documento'), // CPF ou CNPJ
   inscricaoEstadual: text('inscricao_estadual'),
   verificado: boolean('verificado').notNull().default(false),
-  municipio: text('municipio').notNull(),
-  uf: text('uf').notNull(),
+  municipio: text('municipio'),
+  uf: text('uf'),
+  criadoEm: criadoEm(),
+});
+
+/** Códigos de login enviados por SMS/WhatsApp. Guardamos só o hash. */
+export const codigosLogin = pgTable(
+  'codigos_login',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    telefone: text('telefone').notNull(),
+    codigoHash: text('codigo_hash').notNull(),
+    tentativas: integer('tentativas').notNull().default(0),
+    expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+    usadoEm: timestamp('usado_em', { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index('codigos_login_telefone_idx').on(t.telefone, t.criadoEm)],
+);
+
+/** Sessões abertas. O token só existe no aparelho; aqui fica o hash. */
+export const sessoes = pgTable('sessoes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  usuarioId: uuid('usuario_id')
+    .notNull()
+    .references(() => usuarios.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+  revogadaEm: timestamp('revogada_em', { withTimezone: true }),
   criadoEm: criadoEm(),
 });
 
