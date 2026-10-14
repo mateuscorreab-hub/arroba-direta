@@ -3,10 +3,14 @@ import { and, count, desc, eq, ilike, lte, gte, sql, type SQL } from 'drizzle-or
 import type { Lote, LoteCriar, LoteFiltro, Pagina } from '@arroba/shared';
 import { DB, type Db } from '../db/db.module.js';
 import { lotes, usuarios } from '../db/schema.js';
+import { APROVACAO_LOTES, type AprovacaoLotes } from './aprovacao-lotes.js';
 
 @Injectable()
 export class LotesService {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    @Inject(APROVACAO_LOTES) private readonly aprovacao: AprovacaoLotes,
+  ) {}
 
   async buscar(f: LoteFiltro): Promise<Pagina<Lote>> {
     const temPonto = f.lat !== undefined && f.lng !== undefined;
@@ -48,7 +52,7 @@ export class LotesService {
   async criar(vendedorId: string, dados: LoteCriar): Promise<Lote> {
     const [{ id }] = await this.db
       .insert(lotes)
-      .values({ ...dados, vendedorId, status: 'em_analise' })
+      .values({ ...dados, vendedorId, status: this.aprovacao === 'automatica' ? 'ativo' : 'em_analise' })
       .returning({ id: lotes.id });
     return this.obter(id);
   }

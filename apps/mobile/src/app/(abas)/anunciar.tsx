@@ -125,9 +125,15 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
     setErros({});
     setEnviando(true);
     try {
-      await criarLote(r.data);
+      const lote = await criarLote(r.data);
       setCampos(vazio);
-      setAviso({ tipo: 'info', texto: 'Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida.' });
+      setAviso({
+        tipo: 'info',
+        texto:
+          lote.status === 'ativo'
+            ? 'Anúncio publicado! Seu lote já aparece na busca.'
+            : 'Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida.',
+      });
     } catch (e) {
       // 401: a sessão já foi encerrada pela API; leva a pessoa para entrar de novo.
       if (e instanceof ErroApi && e.status === 401) {

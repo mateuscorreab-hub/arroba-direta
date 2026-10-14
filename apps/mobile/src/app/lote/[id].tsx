@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { CATEGORIA_ROTULO, type Lote } from '@arroba/shared';
 
+import { NegociarLote } from '@/componentes/negociar-lote';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -47,13 +48,13 @@ export default function LoteDetalhe() {
           </View>
         ))}
       </View>
-      {/* Próximo passo: chat com o vendedor e envio de proposta. */}
+      <NegociarLote lote={lote} />
     </ScrollView>
   );
 }
 
 const estilos = StyleSheet.create({
-  conteudo: { padding: Spacing.three, gap: Spacing.three },
+  conteudo: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.five },
   ficha: { borderWidth: 1, borderRadius: 14, padding: Spacing.three, gap: Spacing.two },
   linha: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.three },
 });

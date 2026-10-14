@@ -29,6 +29,10 @@ services:
       # Versão de teste: sem SMS, o código de login aparece na tela do app.
       - key: CODIGO_MODO
         value: teste
+      # Versão de teste: o lote anunciado já entra na busca, sem revisão, para dar para testar a negociação.
+      # Trocar para "manual" quando existir o painel de moderação.
+      - key: APROVACAO_LOTES
+        value: automatica
 
   - type: web
     name: arroba-site

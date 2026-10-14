@@ -1,10 +1,15 @@
 import type {
+  ConversaDetalhe,
   Entrar,
   Eu,
+  ListaConversas,
   Lote,
   LoteCriar,
+  Mensagem,
   Pagina,
   Perfil,
+  PropostaCriar,
+  PropostaNegociacao,
   RespostaEntrar,
   RespostaSolicitarCodigo,
   SolicitarCodigo,
@@ -146,4 +151,34 @@ export function obterEu() {
 
 export function atualizarPerfil(dados: Perfil) {
   return requisitar<Eu>('/eu', enviar('PATCH', dados), tokenAtual);
+}
+
+/** Abre a conversa do usuário sobre o lote, ou devolve a que já existe. */
+export function abrirConversa(loteId: string) {
+  return requisitar<ConversaDetalhe>(`/lotes/${loteId}/conversas`, enviar('POST'), tokenAtual);
+}
+
+export function listarConversas() {
+  return requisitar<ListaConversas>('/conversas', undefined, tokenAtual);
+}
+
+/** Também marca a conversa como lida. */
+export function obterConversa(id: string) {
+  return requisitar<ConversaDetalhe>(`/conversas/${id}`, undefined, tokenAtual);
+}
+
+export function enviarMensagem(conversaId: string, texto: string) {
+  return requisitar<Mensagem>(`/conversas/${conversaId}/mensagens`, enviar('POST', { texto }), tokenAtual);
+}
+
+export function enviarProposta(conversaId: string, dados: PropostaCriar) {
+  return requisitar<PropostaNegociacao>(`/conversas/${conversaId}/propostas`, enviar('POST', dados), tokenAtual);
+}
+
+export function aceitarProposta(id: string) {
+  return requisitar<ConversaDetalhe>(`/propostas/${id}/aceitar`, enviar('POST'), tokenAtual);
+}
+
+export function recusarProposta(id: string) {
+  return requisitar<ConversaDetalhe>(`/propostas/${id}/recusar`, enviar('POST'), tokenAtual);
 }

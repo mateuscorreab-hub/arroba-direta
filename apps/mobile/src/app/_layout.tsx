@@ -11,6 +11,8 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(abas)" options={{ headerShown: false }} />
           <Stack.Screen name="lote/[id]" options={{ title: 'Lote', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="conversa/[id]/index" options={{ title: 'Conversa', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="conversa/[id]/proposta" options={{ title: 'Proposta', headerBackTitle: 'Voltar' }} />
         </Stack>
       </ThemeProvider>
     </ProvedorSessao>
