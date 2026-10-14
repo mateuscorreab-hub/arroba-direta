@@ -1,0 +1,84 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { CATEGORIA_ROTULO, VACINAS } from "@arroba/shared";
+import { ErroApi, obterLote } from "@/lib/api";
+import { precoDoLote, resumoDoLote } from "@/lib/formato";
+
+const VACINA_ROTULO: Record<(typeof VACINAS)[number], string> = {
+  brucelose: "Brucelose",
+  raiva: "Raiva",
+  clostridioses: "Clostridioses",
+  ibr_bvd: "IBR/BVD",
+  leptospirose: "Leptospirose",
+};
+
+async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const lote = await obterLote(id).catch((e) => {
+    if (e instanceof ErroApi && (e.status === 404 || e.status === 400)) notFound();
+    throw e;
+  });
+
+  const ficha: [string, string][] = [
+    ["Categoria", CATEGORIA_ROTULO[lote.categoria]],
+    ["Raça", lote.raca],
+    ["Quantidade", `${lote.quantidade} cabeças`],
+    ["Idade média", lote.idadeMediaMeses ? `${lote.idadeMediaMeses} meses` : "Não informada"],
+    ["Peso médio", lote.pesoMedioKg ? `${lote.pesoMedioKg} kg` : "Não informado"],
+    ["Local", `${lote.municipio}/${lote.uf}`],
+    [
+      "Vacinas",
+      lote.sanidade.vacinas.map((v) => VACINA_ROTULO[v]).join(", ") || "Não informadas",
+    ],
+    ["Vermifugado", lote.sanidade.vermifugado ? "Sim" : "Não informado"],
+  ];
+
+  return (
+    <article className="space-y-6">
+      <div>
+        <p className="text-sm text-suave">{resumoDoLote(lote)}</p>
+        <h1 className="mt-1 text-3xl font-bold">{lote.titulo}</h1>
+        <p className="mt-3 text-2xl font-bold text-marca">{precoDoLote(lote)}</p>
+      </div>
+
+      <dl className="grid gap-x-8 gap-y-3 rounded-xl border border-borda bg-cartao p-5 sm:grid-cols-2">
+        {ficha.map(([k, v]) => (
+          <div key={k}>
+            <dt className="text-sm text-suave">{k}</dt>
+            <dd className="font-medium">{v}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {lote.descricao && <p className="whitespace-pre-line">{lote.descricao}</p>}
+
+      <div className="rounded-xl border border-borda bg-cartao p-5">
+        <p className="font-semibold">
+          {lote.vendedor.nome}
+          {lote.vendedor.verificado && <span className="text-marca"> · ✓ verificado</span>}
+        </p>
+        <p className="text-sm text-suave">
+          {lote.vendedor.municipio}/{lote.vendedor.uf}
+        </p>
+        <p className="mt-3 text-sm">
+          Para fazer uma proposta, baixe o app Arroba Direta. O pagamento fica protegido até a
+          entrega do gado.
+        </p>
+      </div>
+    </article>
+  );
+}
+
+export default function LotePagina({ params }: PageProps<"/lotes/[id]">) {
+  return (
+    <div className="space-y-4">
+      <Link href="/lotes" className="text-sm text-marca">
+        ← Voltar aos lotes
+      </Link>
+      <Suspense fallback={<p className="text-suave">Carregando lote…</p>}>
+        <Detalhe params={params} />
+      </Suspense>
+    </div>
+  );
+}

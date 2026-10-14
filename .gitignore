@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.next/
+.turbo/
+.expo/
+*.tsbuildinfo
+.env
+.env.local
+coverage/
+web-build/
+ios/
+android/
+.DS_Store

@@ -1,0 +1,21 @@
+{
+  "name": "arroba-direta",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm --filter @arroba/api db:migrate",
+    "db:seed": "pnpm --filter @arroba/api db:seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.8"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  }
+}
