@@ -41,7 +41,7 @@ export class LotesService {
 
   async obter(id: string): Promise<Lote> {
     const [linha] = await this.consulta().where(eq(lotes.id, id));
-    if (!linha) throw new NotFoundException('Lote não encontrado');
+    if (!linha) throw new NotFoundException({ mensagem: 'Lote não encontrado' });
     return paraLote(linha);
   }
 
@@ -73,7 +73,7 @@ export class LotesService {
 
 type Linha = {
   lote: typeof lotes.$inferSelect;
-  vendedor: Lote['vendedor'];
+  vendedor: Pick<typeof usuarios.$inferSelect, 'id' | 'nome' | 'verificado' | 'municipio' | 'uf'>;
   distanciaKm: number | null;
 };
 
@@ -90,6 +90,12 @@ function paraLote({ lote, vendedor, distanciaKm }: Linha): Lote {
     disponivelEm: disponivelEm?.toISOString() ?? null,
     criadoEm: criadoEm.toISOString(),
     distanciaKm: distanciaKm === null ? undefined : Math.round(Number(distanciaKm)),
-    vendedor,
+    // Só anuncia quem tem perfil completo; o ?? '' existe para fechar o tipo.
+    vendedor: {
+      ...vendedor,
+      nome: vendedor.nome ?? '',
+      municipio: vendedor.municipio ?? '',
+      uf: vendedor.uf ?? '',
+    },
   };
 }

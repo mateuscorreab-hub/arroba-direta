@@ -1,5 +1,18 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { loteCriarSchema, loteFiltroSchema, type LoteCriar, type LoteFiltro } from '@arroba/shared';
+import { perfilCompleto, type Usuario } from '../auth/auth.service.js';
+import { AutenticadoGuard } from '../auth/autenticado.guard.js';
+import { UsuarioLogado } from '../auth/usuario-logado.decorator.js';
 import { ZodPipe } from '../comum/zod.pipe.js';
 import { LotesService } from './lotes.service.js';
 
@@ -18,12 +31,13 @@ export class LotesController {
   }
 
   @Post()
-  criar(
-    // TODO: substituir pelo usuário autenticado (login por código no celular).
-    @Headers('x-usuario-id') usuarioId: string | undefined,
-    @Body(new ZodPipe(loteCriarSchema)) dados: LoteCriar,
-  ) {
-    if (!usuarioId) throw new UnauthorizedException('Faça login para anunciar');
-    return this.lotes.criar(usuarioId, dados);
+  @UseGuards(AutenticadoGuard)
+  criar(@UsuarioLogado() usuario: Usuario, @Body(new ZodPipe(loteCriarSchema)) dados: LoteCriar) {
+    if (!perfilCompleto(usuario)) {
+      throw new ForbiddenException({
+        mensagem: 'Complete seu perfil (nome, município e estado) antes de anunciar.',
+      });
+    }
+    return this.lotes.criar(usuario.id, dados);
   }
 }

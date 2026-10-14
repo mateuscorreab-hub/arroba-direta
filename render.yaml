@@ -26,6 +26,9 @@ services:
         fromDatabase:
           name: arroba-db
           property: connectionString
+      # Versão de teste: sem SMS, o código de login aparece na tela do app.
+      - key: CODIGO_MODO
+        value: teste
 
   - type: web
     name: arroba-site

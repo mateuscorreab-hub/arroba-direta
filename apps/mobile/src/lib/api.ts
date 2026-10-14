@@ -1,4 +1,14 @@
-import type { Lote, LoteCriar, Pagina } from '@arroba/shared';
+import type {
+  Entrar,
+  Eu,
+  Lote,
+  LoteCriar,
+  Pagina,
+  Perfil,
+  RespostaEntrar,
+  RespostaSolicitarCodigo,
+  SolicitarCodigo,
+} from '@arroba/shared';
 
 // No Render, a variável chega só com o host (ex.: arroba-api.onrender.com).
 const API_URL = comEsquema(process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333');
@@ -7,21 +17,100 @@ function comEsquema(url: string) {
   return /^https?:\/\//.test(url) ? url : `https://${url}`;
 }
 
-// Provisório até o login por código no celular existir.
-const USUARIO_DEV = process.env.EXPO_PUBLIC_DEV_USUARIO_ID;
+/** Erro devolvido pela API (corpo {mensagem, erros?}). Status 0 é falta de conexão. */
+export class ErroApi extends Error {
+  readonly status: number;
+  /** Mensagem de cada campo inválido, pelo nome do campo. */
+  readonly erros: Record<string, string>;
 
-async function requisitar<T>(caminho: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${caminho}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(USUARIO_DEV ? { 'x-usuario-id': USUARIO_DEV } : {}),
-      ...init?.headers,
-    },
-  });
-  const corpo = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(corpo?.mensagem ?? corpo?.message ?? `Erro ${res.status}`);
+  constructor(status: number, mensagem: string, erros: Record<string, string> = {}) {
+    super(mensagem);
+    this.name = 'ErroApi';
+    this.status = status;
+    this.erros = erros;
+  }
+}
+
+/** Texto para mostrar na tela a partir de qualquer erro. */
+export function textoDoErro(e: unknown): string {
+  return e instanceof Error ? e.message : 'Algo deu errado. Tente de novo.';
+}
+
+// Token da sessão atual, definido pelo provedor de sessão (src/lib/sessao.tsx).
+let tokenAtual: string | null = null;
+let aoPerderSessao: (() => void) | null = null;
+
+export function definirToken(token: string | null) {
+  tokenAtual = token;
+}
+
+export function tokenDaSessao() {
+  return tokenAtual;
+}
+
+/** Chamado quando uma chamada autenticada volta 401 (sessão expirada ou revogada). */
+export function quandoPerderSessao(funcao: (() => void) | null) {
+  aoPerderSessao = funcao;
+}
+
+// Sem prazo, o fetch do Android espera para sempre numa conexão travada. Folga para a API do Render acordar (~1 min).
+const TEMPO_LIMITE_MS = 90_000;
+
+async function requisitar<T>(caminho: string, init?: RequestInit, token?: string | null): Promise<T> {
+  const controle = new AbortController();
+  const limite = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
+  let res: Response;
+  let corpo: unknown;
+  try {
+    res = await fetch(`${API_URL}${caminho}`, {
+      ...init,
+      signal: controle.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+    // Corpo vazio ou que não é JSON vira null; o prazo estourado no meio da leitura segue como erro.
+    corpo = await res.json().catch((e: unknown) => {
+      if (controle.signal.aborted) throw e;
+      return null;
+    });
+  } catch {
+    throw new ErroApi(
+      0,
+      controle.signal.aborted
+        ? 'O servidor demorou para responder. Confira sua internet e tente de novo.'
+        : 'Sem conexão com o servidor. Confira sua internet e tente de novo.',
+    );
+  } finally {
+    clearTimeout(limite);
+  }
+  if (!res.ok) {
+    // Só derruba a sessão se o token recusado ainda for o atual (o usuário pode ter saído e entrado de novo).
+    if (res.status === 401 && token && token === tokenAtual) aoPerderSessao?.();
+    throw erroDaResposta(res.status, corpo);
+  }
   return corpo as T;
+}
+
+function erroDaResposta(status: number, corpo: unknown): ErroApi {
+  const c = (corpo ?? {}) as { mensagem?: unknown; erros?: unknown };
+  // Erros padrão do Nest vêm em inglês ({message}); nesse caso mostramos uma mensagem genérica.
+  const mensagem = typeof c.mensagem === 'string' ? c.mensagem : `Algo deu errado (erro ${status}). Tente de novo.`;
+  const erros: Record<string, string> = {};
+  if (Array.isArray(c.erros)) {
+    for (const e of c.erros as { campo?: unknown; mensagem?: unknown }[]) {
+      if (typeof e?.campo === 'string' && typeof e.mensagem === 'string' && !(e.campo in erros)) {
+        erros[e.campo] = e.mensagem;
+      }
+    }
+  }
+  return new ErroApi(status, mensagem, erros);
+}
+
+function enviar(metodo: string, dados?: unknown): RequestInit {
+  return { method: metodo, body: dados === undefined ? undefined : JSON.stringify(dados) };
 }
 
 export function buscarLotes(filtro: Record<string, string | number | undefined>) {
@@ -35,5 +124,26 @@ export function obterLote(id: string) {
 }
 
 export function criarLote(dados: LoteCriar) {
-  return requisitar<Lote>('/lotes', { method: 'POST', body: JSON.stringify(dados) });
+  return requisitar<Lote>('/lotes', enviar('POST', dados), tokenAtual);
+}
+
+export function solicitarCodigo(dados: SolicitarCodigo) {
+  return requisitar<RespostaSolicitarCodigo>('/auth/codigo', enviar('POST', dados));
+}
+
+export function entrar(dados: Entrar) {
+  return requisitar<RespostaEntrar>('/auth/entrar', enviar('POST', dados));
+}
+
+/** Recebe o token explicitamente: a sessão local já foi limpa quando isso roda. */
+export function sair(token: string) {
+  return requisitar<void>('/auth/sair', enviar('POST'), token);
+}
+
+export function obterEu() {
+  return requisitar<Eu>('/eu', undefined, tokenAtual);
+}
+
+export function atualizarPerfil(dados: Perfil) {
+  return requisitar<Eu>('/eu', enviar('PATCH', dados), tokenAtual);
 }
