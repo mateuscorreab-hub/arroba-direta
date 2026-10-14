@@ -33,7 +33,7 @@ export default function Lotes({ searchParams }: PageProps<"/lotes">) {
       <h1 className="text-3xl font-bold">Lotes à venda</h1>
 
       <form className="flex flex-wrap gap-3" action="/lotes">
-        <select name="categoria" className="rounded-lg border border-borda bg-cartao px-3 py-2">
+        <select name="categoria" className="w-full rounded-lg border border-borda bg-cartao px-3 py-2 sm:w-auto">
           <option value="">Todas as categorias</option>
           {CATEGORIAS.map((c) => (
             <option key={c} value={c}>
@@ -41,7 +41,7 @@ export default function Lotes({ searchParams }: PageProps<"/lotes">) {
             </option>
           ))}
         </select>
-        <select name="uf" className="rounded-lg border border-borda bg-cartao px-3 py-2">
+        <select name="uf" className="w-full rounded-lg border border-borda bg-cartao px-3 py-2 sm:w-auto">
           <option value="">Todos os estados</option>
           {UFS.map((uf) => (
             <option key={uf}>{uf}</option>
@@ -50,9 +50,9 @@ export default function Lotes({ searchParams }: PageProps<"/lotes">) {
         <input
           name="raca"
           placeholder="Raça (ex.: Nelore)"
-          className="rounded-lg border border-borda bg-cartao px-3 py-2"
+          className="w-full rounded-lg border border-borda bg-cartao px-3 py-2 sm:w-auto"
         />
-        <button className="rounded-lg bg-marca px-4 py-2 font-semibold text-marca-texto">
+        <button className="w-full rounded-lg bg-marca px-4 py-2 font-semibold text-marca-texto sm:w-auto">
           Buscar
         </button>
       </form>

@@ -1,6 +1,11 @@
 import type { Lote, Pagina } from "@arroba/shared";
 
-const API_URL = process.env.API_URL ?? "http://localhost:3333";
+// No Render, a variável chega só com o host (ex.: arroba-api.onrender.com).
+const API_URL = comEsquema(process.env.API_URL ?? "http://localhost:3333");
+
+function comEsquema(url: string) {
+  return /^https?:\/\//.test(url) ? url : `https://${url}`;
+}
 
 export class ErroApi extends Error {
   constructor(public status: number) {

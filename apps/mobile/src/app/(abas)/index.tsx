@@ -56,7 +56,11 @@ export default function Buscar() {
         <Texto tipo="titulo">Lotes à venda</Texto>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={estilos.faixaChips}
+        contentContainerStyle={estilos.chips}>
         {[undefined, ...CATEGORIAS].map((c) => {
           const ativo = c === categoria;
           return (
@@ -102,7 +106,8 @@ export default function Buscar() {
 const estilos = StyleSheet.create({
   tela: { flex: 1 },
   cabecalho: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three },
-  chips: { gap: Spacing.two, padding: Spacing.three },
+  faixaChips: { flexGrow: 0, flexShrink: 0 },
+  chips: { gap: Spacing.two, padding: Spacing.three, alignItems: 'center' },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   lista: { gap: Spacing.three, padding: Spacing.three, paddingTop: 0, paddingBottom: 120 },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },

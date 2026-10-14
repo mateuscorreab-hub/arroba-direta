@@ -1,6 +1,12 @@
 import type { Lote, LoteCriar, Pagina } from '@arroba/shared';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333';
+// No Render, a variável chega só com o host (ex.: arroba-api.onrender.com).
+const API_URL = comEsquema(process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333');
+
+function comEsquema(url: string) {
+  return /^https?:\/\//.test(url) ? url : `https://${url}`;
+}
+
 // Provisório até o login por código no celular existir.
 const USUARIO_DEV = process.env.EXPO_PUBLIC_DEV_USUARIO_ID;
 
