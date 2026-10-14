@@ -527,6 +527,18 @@ describe('Negociação (e2e)', () => {
     expect(hoje.body).toMatchObject({ dataEmbarque: dia(0), mensagem: null, quebraPercentual: 0 });
   });
 
+  it('recusa proposta com valor total maior do que o pedido comporta', async () => {
+    const { vendedor, comprador, conversaId } = await negociacao({ quantidade: 1000, pesoMedioKg: 450 });
+    const alta = await propor(vendedor, conversaId, { unidadePreco: 'kg', preco: 2_600_000, quantidade: 1000 }).expect(400);
+    expect(alta.body).toEqual({
+      mensagem: 'Dados inválidos',
+      erros: [{ campo: 'preco', mensagem: 'Valor total alto demais. Confira o preço.' }],
+    });
+    const p = await propor(vendedor, conversaId, { unidadePreco: 'kg', preco: 2_000_000, quantidade: 1000 }).expect(201);
+    const fechada = await aceitar(comprador, p.body.id).expect(200);
+    expect(fechada.body.pedido.valorTotal).toBe(900_000_000_000);
+  });
+
   it('lote sem peso médio só aceita proposta por cabeça', async () => {
     const { comprador, conversaId } = await negociacao({ pesoMedioKg: undefined });
     for (const unidadePreco of ['kg', 'arroba']) {

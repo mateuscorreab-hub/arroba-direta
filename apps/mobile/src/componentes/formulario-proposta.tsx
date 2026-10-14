@@ -264,7 +264,9 @@ export function FormularioProposta({ conversa, base, meuId, aoEnviar, aoCancelar
         rotulo="Data de embarque"
         placeholder="dd/mm/aaaa"
         value={campos.dataEmbarque}
-        onChangeText={(v) => mudar('dataEmbarque', mascararData(v))}
+        // Apagando, fica como a pessoa deixou: reformatar no meio embaralha os dígitos e joga o cursor para o fim.
+        onChangeText={(v) => mudar('dataEmbarque', v.length < campos.dataEmbarque.length ? v : mascararData(v))}
+        selectTextOnFocus
         keyboardType="number-pad"
         maxLength={10}
         editable={!enviando}

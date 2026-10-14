@@ -3,6 +3,9 @@ import { useColorScheme } from 'react-native';
 
 import { ProvedorSessao } from '@/lib/sessao';
 
+// Aberta por link ou recarregando a página, a tela fica por cima das abas e tem Voltar.
+export const unstable_settings = { anchor: '(abas)' };
+
 export default function RootLayout() {
   const esquema = useColorScheme();
   return (

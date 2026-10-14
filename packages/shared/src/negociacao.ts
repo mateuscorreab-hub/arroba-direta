@@ -45,6 +45,10 @@ const EMAIL = /[\w.%+-]+@[\w-]+(?:\.[\w-]+)+/g;
 // 8 ou mais dígitos, com espaços, pontos, hífens, parênteses ou "+" entre eles.
 const TELEFONE = /[+(]*\d(?:[\s.()+-]*\d){7,}/g;
 const DATA_COM_PONTO_OU_HIFEN = /^(0[1-9]|[12]\d|3[01])[.-](0[1-9]|1[0-2])[.-]20\d\d$/;
+// Preço escrito como preço ("R$ 2.600", "R$ 310,50", "12.500.000,00"): fica fora da busca por telefone.
+// Sem lookbehind, que o Safari antigo não aceita.
+const PRECO =
+  /(R\$\s*(?:\d{1,3}(?:\.\d{3}){1,2}|\d{1,7})(?:,\d{2})?(?!\d|[.,]\d)|(?:^|[^\d.,])\d{1,3}(?:\.\d{3}){1,2},\d{2}(?!\d|[.,]\d))/;
 
 /**
  * Esconde telefones e e-mails para o negócio não sair do app antes de fechar.
@@ -56,13 +60,16 @@ export function mascararContato(texto: string): { texto: string; mascarado: bool
     mascarado = true;
     return CONTATO_OCULTO;
   };
+  // No split com grupo, os preços ficam nas posições ímpares e não passam pela máscara.
   const resultado = texto
     .replace(EMAIL, ocultar)
-    .replace(TELEFONE, (trecho: string, inicio: number, todo: string) => {
-      const ehPreco =
-        /R\$\s*$/.test(todo.slice(0, inicio)) || /^,\d\d(?!\d)/.test(todo.slice(inicio + trecho.length));
-      return ehPreco || DATA_COM_PONTO_OU_HIFEN.test(trecho) ? trecho : ocultar();
-    });
+    .split(PRECO)
+    .map((parte, i) =>
+      i % 2 === 1
+        ? parte
+        : parte.replace(TELEFONE, (trecho) => (DATA_COM_PONTO_OU_HIFEN.test(trecho) ? trecho : ocultar())),
+    )
+    .join('');
   return { texto: resultado, mascarado };
 }
 

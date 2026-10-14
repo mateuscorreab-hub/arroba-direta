@@ -1,5 +1,5 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { CATEGORIA_ROTULO, type Lote } from '@arroba/shared';
 
@@ -16,12 +16,29 @@ export default function LoteDetalhe() {
   const [lote, setLote] = useState<Lote | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
-  useEffect(() => {
-    obterLote(id).then(setLote, (e: Error) => setErro(e.message));
-  }, [id]);
+  // Busca de novo ao voltar para a tela: o lote pode ter fechado negócio enquanto isso.
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+      obterLote(id).then(
+        (l) => {
+          if (ativo) setLote(l);
+        },
+        (e: Error) => {
+          if (ativo) setErro(e.message);
+        },
+      );
+      return () => {
+        ativo = false;
+      };
+    }, [id]),
+  );
 
-  if (erro) return <Texto cor="danger" style={estilos.conteudo}>{erro}</Texto>;
-  if (!lote) return <ActivityIndicator style={{ flex: 1 }} color={tema.brand} />;
+  // Uma falha ao buscar de novo não apaga o lote que já está na tela.
+  if (!lote) {
+    if (erro) return <Texto cor="danger" style={estilos.conteudo}>{erro}</Texto>;
+    return <ActivityIndicator style={{ flex: 1 }} color={tema.brand} />;
+  }
 
   const ficha: [string, string][] = [
     ['Categoria', CATEGORIA_ROTULO[lote.categoria]],

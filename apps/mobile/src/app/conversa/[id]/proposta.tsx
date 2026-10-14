@@ -12,7 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ErroApi, obterConversa, textoDoErro } from '@/lib/api';
 import { useSessao } from '@/lib/sessao';
 
-const irParaPerfil = () => router.navigate('/perfil');
+const irParaPerfil = () => router.dismissTo('/perfil');
 
 export default function PropostaTela() {
   const { id, de } = useLocalSearchParams<{ id: string; de?: string }>();
@@ -51,9 +51,9 @@ export default function PropostaTela() {
   );
 }
 
+/** Volta à conversa que está embaixo ou, aberto por link, troca o formulário por ela. */
 function voltarParaConversa(id: string) {
-  if (router.canGoBack()) router.back();
-  else router.replace({ pathname: '/conversa/[id]', params: { id } });
+  router.dismissTo({ pathname: '/conversa/[id]', params: { id } });
 }
 
 /** Proposta de onde o formulário parte: a escolhida, a aberta ou a mais recente da conversa. */

@@ -12,8 +12,10 @@ import { abrirPropostaAoCarregar } from '@/lib/abrir-proposta';
 import { abrirConversa, listarConversas, textoDoErro } from '@/lib/api';
 import { useSessao } from '@/lib/sessao';
 
-const irParaPerfil = () => router.navigate('/perfil');
-const irParaConversa = (id: string) => router.push({ pathname: '/conversa/[id]', params: { id } });
+// dismissTo volta às abas que já estão na pilha, em vez de empilhar outra cópia delas.
+const irParaPerfil = () => router.dismissTo('/perfil');
+// navigate e não push: um toque duplo não abre a conversa duas vezes.
+const irParaConversa = (id: string) => router.navigate({ pathname: '/conversa/[id]', params: { id } });
 
 /** Botões de negociação na tela do lote, conforme quem está vendo e a situação do lote. */
 export function NegociarLote({ lote }: { lote: Lote }) {
@@ -39,7 +41,7 @@ export function NegociarLote({ lote }: { lote: Lote }) {
             ? 'Este anúncio é seu. Ele está em revisão e ainda não aparece na busca.'
             : 'Este anúncio é seu. As conversas com compradores ficam na aba Conversas.'}
         </Aviso>
-        <Botao titulo="Ver conversas" variante="secundario" onPress={() => router.navigate('/conversas')} />
+        <Botao titulo="Ver conversas" variante="secundario" onPress={() => router.dismissTo('/conversas')} />
       </>
     );
   } else if (lote.status !== 'ativo') {

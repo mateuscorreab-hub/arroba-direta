@@ -37,6 +37,7 @@ const NEGOCIO_FECHADO = 'Negócio fechado! O próximo passo é o pagamento prote
 const OUTRO_COMPRADOR = 'O vendedor fechou negócio com outro comprador. Este lote não está mais disponível.';
 const PROPOSTA_RECUSADA = 'Proposta recusada.';
 const MENSAGENS_NO_DETALHE = 200;
+const VALOR_TOTAL_MAX = 999_999_999_999.99; // limite de pedidos.valor_total numeric(14,2)
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type PropostaLinha = typeof propostas.$inferSelect;
@@ -419,7 +420,7 @@ async function avisar(tx: Tx, conversaIds: string[], texto: string) {
   await tocar(tx, conversaIds);
 }
 
-/** Quantidade, peso e data que dependem do lote; os outros campos o schema já validou. */
+/** Quantidade, peso, valor total e data que dependem do lote; os outros campos o schema já validou. */
 function validarNoLote(dados: PropostaCriar, lote: { quantidade: number; pesoMedioKg: number | null }) {
   const erros: { campo: string; mensagem: string }[] = [];
   if (dados.quantidade > lote.quantidade) {
@@ -428,6 +429,8 @@ function validarNoLote(dados: PropostaCriar, lote: { quantidade: number; pesoMed
   }
   if (dados.unidadePreco !== 'cabeca' && !lote.pesoMedioKg) {
     erros.push({ campo: 'unidadePreco', mensagem: 'Este lote não tem peso médio. Faça a proposta por cabeça.' });
+  } else if (valorTotal(entradaValor(dados, lote.pesoMedioKg)) > VALOR_TOTAL_MAX) {
+    erros.push({ campo: 'preco', mensagem: 'Valor total alto demais. Confira o preço.' });
   }
   if (!dataEmbarqueValida(dados.dataEmbarque)) {
     erros.push({ campo: 'dataEmbarque', mensagem: 'A data de embarque não pode ser antes de hoje.' });
@@ -440,7 +443,10 @@ function vencida(p: Pick<PropostaLinha, 'status' | 'expiraEm'>, agora: number): 
   return p.status === 'enviada' && p.expiraEm.getTime() <= agora;
 }
 
-function entradaValor(p: PropostaLinha, pesoMedioKg: number | null): EntradaValorTotal {
+function entradaValor(
+  p: Pick<PropostaLinha, 'unidadePreco' | 'preco' | 'quantidade' | 'quebraPercentual'>,
+  pesoMedioKg: number | null,
+): EntradaValorTotal {
   return {
     unidade: p.unidadePreco,
     preco: p.preco,

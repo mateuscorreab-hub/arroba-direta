@@ -2,6 +2,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -39,7 +40,8 @@ import { cabecas, precoDoLote } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
 
 const ATUALIZAR_A_CADA_MS = 5_000;
-const irParaPerfil = () => router.navigate('/perfil');
+// dismissTo volta às abas que já estão na pilha, em vez de empilhar outra cópia delas.
+const irParaPerfil = () => router.dismissTo('/perfil');
 
 export default function ConversaTela() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -79,7 +81,7 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
   const margens = useSafeAreaInsets();
   const buscar = useCallback(() => obterConversa(id), [id]);
   const { dados: conversa, erro, recarregar, definir } = useDadosEmFoco(buscar, ATUALIZAR_A_CADA_MS);
-  const [digitando, setDigitando] = useState(false);
+  const tecladoAberto = useTecladoAberto();
   // Distância do topo da janela até a tela (cabeçalho e barra de status), para o teclado não cobrir o campo.
   const [topo, setTopo] = useState(0);
   const raiz = useRef<View>(null);
@@ -104,7 +106,7 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
       <ScrollView style={{ backgroundColor: tema.background }} contentContainerStyle={estilos.bloco}>
         <Aviso tipo="erro">{naoEncontrada ? 'Conversa não encontrada.' : textoDoErro(erro)}</Aviso>
         {naoEncontrada ? (
-          <Botao titulo="Ver conversas" onPress={() => router.navigate('/conversas')} />
+          <Botao titulo="Ver conversas" onPress={() => router.dismissTo('/conversas')} />
         ) : (
           <Botao titulo="Tentar de novo" onPress={recarregar} />
         )}
@@ -144,7 +146,7 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
   }
 
   function fazerProposta(de?: string) {
-    router.push({ pathname: '/conversa/[id]/proposta', params: de ? { id, de } : { id } });
+    router.navigate({ pathname: '/conversa/[id]/proposta', params: de ? { id, de } : { id } });
   }
 
   return (
@@ -157,27 +159,28 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
         style={estilos.tela}
         behavior="padding"
         enabled={Platform.OS !== 'web'}
-        keyboardVerticalOffset={topo}>
+        // O teclado cobre a margem de baixo, que o rodapé já reserva: sem descontar, sobra uma faixa vazia.
+        keyboardVerticalOffset={topo - margens.bottom}>
         <View style={[estilos.cabecalho, { backgroundColor: tema.backgroundElement, borderColor: tema.border }]}>
           <Pressable
-            onPress={() => router.push({ pathname: '/lote/[id]', params: { id: lote.id } })}
+            onPress={() => router.navigate({ pathname: '/lote/[id]', params: { id: lote.id } })}
             accessibilityRole="link"
             accessibilityHint="Abre o anúncio do lote">
-            <Texto tipo="destaque" numberOfLines={digitando ? 1 : 2}>
+            <Texto tipo="destaque" numberOfLines={tecladoAberto ? 1 : 2}>
               {lote.titulo}
             </Texto>
             <Texto cor="brand" style={estilos.negrito}>
               {precoDoLote(lote)} · {cabecas(lote.quantidade)}
             </Texto>
           </Pressable>
-          {!digitando && (
+          {!tecladoAberto && (
             <Texto tipo="pequeno" cor="textSecondary">
               {conversa.papel === 'comprador' ? 'Vendedor' : 'Comprador'}: {outraParte.nome}
               {outraParte.verificado ? ' ✓' : ''} · {outraParte.municipio}/{outraParte.uf}
             </Texto>
           )}
           {conversa.negocioFechado ? (
-            !digitando && (
+            !tecladoAberto && (
               <Aviso>
                 <Texto tipo="destaque" cor="brand">
                   Negócio fechado
@@ -202,7 +205,7 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
             )
           ) : (
             <>
-              {!digitando && lote.status !== 'ativo' && (
+              {!tecladoAberto && lote.status !== 'ativo' && (
                 <Aviso>Este lote não está mais disponível para negociação.</Aviso>
               )}
               <Texto tipo="pequeno" cor="textSecondary">
@@ -260,10 +263,10 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
           {usuario.perfilCompleto ? (
             <Escrever
               conversaId={id}
-              podePropor={podeNegociar && !digitando}
+              podePropor={podeNegociar && !tecladoAberto}
+              negocioFechado={conversa.negocioFechado}
               aoPropor={() => fazerProposta()}
               aoEnviar={mensagemEnviada}
-              aoDigitar={setDigitando}
             />
           ) : (
             <>
@@ -277,18 +280,37 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
   );
 }
 
+/**
+ * Teclado na tela, pelos eventos do teclado e não pelo foco do campo: no Android, fechar o teclado
+ * com Voltar deixa o campo focado. Na web não há teclado virtual a considerar.
+ */
+function useTecladoAberto() {
+  const [aberto, setAberto] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const ios = Platform.OS === 'ios';
+    const abriu = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setAberto(true));
+    const fechou = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setAberto(false));
+    return () => {
+      abriu.remove();
+      fechou.remove();
+    };
+  }, []);
+  return aberto;
+}
+
 function Escrever({
   conversaId,
   podePropor,
+  negocioFechado,
   aoPropor,
   aoEnviar,
-  aoDigitar,
 }: {
   conversaId: string;
   podePropor: boolean;
+  negocioFechado: boolean;
   aoPropor: () => void;
   aoEnviar: (m: Mensagem) => void;
-  aoDigitar: (digitando: boolean) => void;
 }) {
   const tema = useTheme();
   const [texto, setTexto] = useState('');
@@ -332,7 +354,7 @@ function Escrever({
 
   return (
     <>
-      {mascarado && (
+      {mascarado && !negocioFechado && (
         <Aviso>
           Telefones e e-mails ficam ocultos até o negócio fechar. Combine os detalhes por aqui, com segurança.
         </Aviso>
@@ -347,8 +369,6 @@ function Escrever({
             if (erro) setErro(null);
           }}
           onKeyPress={aoTeclar}
-          onFocus={() => aoDigitar(true)}
-          onBlur={() => aoDigitar(false)}
           placeholder="Escreva uma mensagem"
           placeholderTextColor={tema.textSecondary}
           accessibilityLabel="Mensagem"

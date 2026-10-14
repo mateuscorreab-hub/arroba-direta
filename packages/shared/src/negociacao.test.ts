@@ -40,7 +40,25 @@ describe('mascararContato', () => {
   });
 
   it.each([
+    ['Fecho por R$ 2.600 - (67) 99999-0001 me chama', `Fecho por R$ 2.600 - ${CONTATO_OCULTO} me chama`],
+    ['R$ 310 (67) 99999-0001', `R$ 310 ${CONTATO_OCULTO}`],
+    ['R$ 2600 (67) 99999-0001', `R$ 2600 ${CONTATO_OCULTO}`],
+    ['R$ 2.600 + 67 99999-0001', `R$ 2.600 + ${CONTATO_OCULTO}`],
+    ['Pago R$ 2.500 (67) 99812-3456', `Pago R$ 2.500 ${CONTATO_OCULTO}`],
+    ['R$ 2.500. 67 99812-3456', `R$ 2.500. ${CONTATO_OCULTO}`],
+    ['valor R$ 2.600,00 (67) 99999-0001', `valor R$ 2.600,00 ${CONTATO_OCULTO}`],
+    ['R$67999990001', `R$${CONTATO_OCULTO}`],
+    ['me liga 67999990001,00', `me liga ${CONTATO_OCULTO},00`],
+    ['Liga 67 99812-3456 2.600,00 a cabeça', `Liga ${CONTATO_OCULTO} 2.600,00 a cabeça`],
+  ])('esconde o telefone junto de um preço: %s', (texto, esperado) => {
+    expect(mascararContato(texto)).toEqual({ texto: esperado, mascarado: true });
+  });
+
+  it.each([
     ['R$ 2.600,00'],
+    ['R$2500'],
+    ['R$ 1250000'],
+    ['R$ 2.500 a R$ 2.700'],
     ['310'],
     ['120 cabeças'],
     ['15/11/2026'],
