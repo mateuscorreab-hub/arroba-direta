@@ -11,3 +11,4 @@ web-build/
 ios/
 android/
 .DS_Store
+apps/api/uploads/

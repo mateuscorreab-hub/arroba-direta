@@ -1,12 +1,18 @@
+import { Platform } from 'react-native';
 import type {
   Entrar,
+  EnvioMidia,
   Eu,
   Lote,
   LoteCriar,
+  Midia,
   Pagina,
+  PedidoEnvioMidia,
   Perfil,
+  RegistrarMidia,
   RespostaEntrar,
   RespostaSolicitarCodigo,
+  RespostaUpload,
   SolicitarCodigo,
 } from '@arroba/shared';
 
@@ -146,4 +152,128 @@ export function obterEu() {
 
 export function atualizarPerfil(dados: Perfil) {
   return requisitar<Eu>('/eu', enviar('PATCH', dados), tokenAtual);
+}
+
+export function pedirEnvioMidia(loteId: string, dados: PedidoEnvioMidia) {
+  return requisitar<EnvioMidia>(`/lotes/${loteId}/midias/envio`, enviar('POST', dados), tokenAtual);
+}
+
+export function registrarMidia(loteId: string, dados: RegistrarMidia) {
+  return requisitar<Midia>(`/lotes/${loteId}/midias`, enviar('POST', dados), tokenAtual);
+}
+
+export function apagarMidia(loteId: string, midiaId: string) {
+  return requisitar<void>(`/lotes/${loteId}/midias/${midiaId}`, enviar('DELETE'), tokenAtual);
+}
+
+export function ordenarMidias(loteId: string, ids: string[]) {
+  return requisitar<Midia[]>(`/lotes/${loteId}/midias/ordem`, enviar('PATCH', { ids }), tokenAtual);
+}
+
+export type ArquivoParaEnvio = {
+  uri: string;
+  nome: string;
+  mime: string;
+  /** Só na web: o arquivo escolhido. Sem ele, é lido de novo pela uri. */
+  arquivoWeb?: Blob;
+};
+
+// Um vídeo grande demora muitos minutos na internet da fazenda; o envio só desiste se parar de andar.
+const ENVIO_PARADO_MS = 60_000;
+
+/**
+ * Manda o arquivo direto para o armazenamento (Cloudinary, ou a própria API no modo local) com a autorização
+ * de pedirEnvioMidia. Usa XMLHttpRequest porque o fetch não informa o progresso do envio.
+ */
+export async function enviarArquivo(
+  envio: EnvioMidia,
+  arquivo: ArquivoParaEnvio,
+  aoProgredir?: (fracao: number) => void,
+  sinal?: AbortSignal,
+): Promise<RespostaUpload> {
+  const formulario = new FormData();
+  for (const [campo, valor] of Object.entries(envio.campos)) formulario.append(campo, valor);
+  // O arquivo vai por último: assim quem recebe confere a autorização antes de receber os bytes.
+  if (Platform.OS === 'web') {
+    let blob = arquivo.arquivoWeb;
+    if (!blob) {
+      try {
+        blob = await (await fetch(arquivo.uri)).blob();
+      } catch {
+        throw new ErroApi(0, 'Não foi possível ler o arquivo. Escolha de novo.');
+      }
+    }
+    formulario.append(envio.campoArquivo, blob, arquivo.nome);
+  } else {
+    // No celular o FormData aceita {uri, name, type} e lê o arquivo direto do disco.
+    formulario.append(envio.campoArquivo, { uri: arquivo.uri, name: arquivo.nome, type: arquivo.mime } as unknown as Blob);
+  }
+
+  return new Promise((resolve, reject) => {
+    if (sinal?.aborted) {
+      reject(new ErroApi(0, 'Envio cancelado.'));
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    let parado: ReturnType<typeof setTimeout> | undefined;
+    let motivo: 'parado' | 'cancelado' = 'cancelado';
+    const vigiar = () => {
+      clearTimeout(parado);
+      parado = setTimeout(() => {
+        motivo = 'parado';
+        xhr.abort();
+      }, ENVIO_PARADO_MS);
+    };
+    const cancelar = () => xhr.abort();
+    const terminar = () => {
+      clearTimeout(parado);
+      sinal?.removeEventListener('abort', cancelar);
+    };
+
+    xhr.upload.onprogress = (e) => {
+      vigiar();
+      if (e.lengthComputable && e.total > 0) aoProgredir?.(Math.min(e.loaded / e.total, 1));
+    };
+    xhr.onload = () => {
+      terminar();
+      let corpo: unknown = null;
+      try {
+        corpo = JSON.parse(xhr.responseText);
+      } catch {
+        // Corpo vazio ou que não é JSON.
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        // A API local responde {mensagem}; o Cloudinary responde em inglês, e aí vale a mensagem genérica.
+        reject(erroDaResposta(xhr.status, corpo));
+        return;
+      }
+      const r = (corpo ?? {}) as Partial<Record<keyof RespostaUpload, unknown>>;
+      const versao = Number(r.version);
+      if (typeof r.public_id !== 'string' || typeof r.signature !== 'string' || !Number.isInteger(versao)) {
+        reject(new ErroApi(xhr.status, 'O envio terminou com uma resposta inesperada. Tente de novo.'));
+        return;
+      }
+      resolve({ public_id: r.public_id, version: versao, signature: r.signature });
+    };
+    xhr.onerror = () => {
+      terminar();
+      reject(new ErroApi(0, 'Sem conexão para enviar o arquivo. Confira sua internet e tente de novo.'));
+    };
+    xhr.onabort = () => {
+      terminar();
+      reject(
+        new ErroApi(
+          0,
+          motivo === 'parado'
+            ? 'O envio parou: a internet caiu ou está muito fraca. Tente de novo quando o sinal melhorar.'
+            : 'Envio cancelado.',
+        ),
+      );
+    };
+
+    sinal?.addEventListener('abort', cancelar);
+    xhr.open('POST', envio.url);
+    vigiar();
+    xhr.send(formulario);
+  });
 }

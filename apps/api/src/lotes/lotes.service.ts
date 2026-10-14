@@ -1,12 +1,16 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, count, desc, eq, ilike, lte, gte, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, lte, gte, sql, type SQL } from 'drizzle-orm';
 import type { Lote, LoteCriar, LoteFiltro, Pagina } from '@arroba/shared';
 import { DB, type Db } from '../db/db.module.js';
-import { lotes, usuarios } from '../db/schema.js';
+import { lotes, midias, usuarios } from '../db/schema.js';
+import { MidiasService } from '../midias/midias.service.js';
 
 @Injectable()
 export class LotesService {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    private readonly midias: MidiasService,
+  ) {}
 
   async buscar(f: LoteFiltro): Promise<Pagina<Lote>> {
     const temPonto = f.lat !== undefined && f.lng !== undefined;
@@ -36,13 +40,18 @@ export class LotesService {
       .limit(f.porPagina)
       .offset((f.pagina - 1) * f.porPagina);
 
-    return { itens: linhas.map(paraLote), total, pagina: f.pagina, porPagina: f.porPagina };
+    return {
+      itens: linhas.map((l) => paraLote(l, this.midias.capa(l.capa))),
+      total,
+      pagina: f.pagina,
+      porPagina: f.porPagina,
+    };
   }
 
   async obter(id: string): Promise<Lote> {
     const [linha] = await this.consulta().where(eq(lotes.id, id));
     if (!linha) throw new NotFoundException({ mensagem: 'Lote não encontrado' });
-    return paraLote(linha);
+    return { ...paraLote(linha, this.midias.capa(linha.capa)), midias: await this.midias.listar(id) };
   }
 
   async criar(vendedorId: string, dados: LoteCriar): Promise<Lote> {
@@ -54,6 +63,20 @@ export class LotesService {
   }
 
   private consulta(distancia?: SQL<number>) {
+    // Capa: a primeira foto pela ordem, ou o vídeo se não houver foto. Na mesma consulta, sem N+1.
+    const capa = this.db
+      .select({
+        tipo: midias.tipo,
+        publicId: midias.publicId,
+        versao: midias.versao,
+        url: midias.url,
+        armazenamento: midias.armazenamento,
+      })
+      .from(midias)
+      .where(eq(midias.loteId, lotes.id))
+      .orderBy(sql`${midias.tipo} = 'video'`, asc(midias.ordem), asc(midias.criadoEm))
+      .limit(1)
+      .as('capa');
     return this.db
       .select({
         lote: lotes,
@@ -65,9 +88,17 @@ export class LotesService {
           uf: usuarios.uf,
         },
         distanciaKm: distancia ?? sql<null>`null`,
+        capa: {
+          tipo: capa.tipo,
+          publicId: capa.publicId,
+          versao: capa.versao,
+          url: capa.url,
+          armazenamento: capa.armazenamento,
+        },
       })
       .from(lotes)
-      .innerJoin(usuarios, eq(lotes.vendedorId, usuarios.id));
+      .innerJoin(usuarios, eq(lotes.vendedorId, usuarios.id))
+      .leftJoinLateral(capa, sql`true`);
   }
 }
 
@@ -77,7 +108,7 @@ type Linha = {
   distanciaKm: number | null;
 };
 
-function paraLote({ lote, vendedor, distanciaKm }: Linha): Lote {
+function paraLote({ lote, vendedor, distanciaKm }: Linha, capa: string | null): Lote {
   const { vendedorId: _, criadoEm, disponivelEm, idadeMediaMeses, pesoMedioKg, preco, descricao, ...resto } = lote;
   return {
     ...resto,
@@ -90,6 +121,7 @@ function paraLote({ lote, vendedor, distanciaKm }: Linha): Lote {
     disponivelEm: disponivelEm?.toISOString() ?? null,
     criadoEm: criadoEm.toISOString(),
     distanciaKm: distanciaKm === null ? undefined : Math.round(Number(distanciaKm)),
+    capa,
     // Só anuncia quem tem perfil completo; o ?? '' existe para fechar o tipo.
     vendedor: {
       ...vendedor,

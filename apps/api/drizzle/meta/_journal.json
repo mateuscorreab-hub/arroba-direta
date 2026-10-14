@@ -15,6 +15,13 @@
       "when": 1791942823304,
       "tag": "0001_slippery_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791983327262,
+      "tag": "0002_volatile_valeria_richards",
+      "breakpoints": true
     }
   ]
 }

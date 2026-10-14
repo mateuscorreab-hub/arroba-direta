@@ -6,20 +6,28 @@ import * as schema from './schema.js';
 export const DB = Symbol('DB');
 export type Db = NodePgDatabase<typeof schema>;
 
-const pool = new pg.Pool({
-  connectionString:
-    process.env.DATABASE_URL ?? 'postgres://arroba:arroba@localhost:5432/arroba_direta',
-});
+const POOL = Symbol('POOL');
 
+// Um pool por app: os testes sobem mais de um app no mesmo arquivo e fecham cada um.
 @Global()
 @Module({
-  providers: [{ provide: DB, useValue: drizzle(pool, { schema }) }],
+  providers: [
+    {
+      provide: POOL,
+      useFactory: () =>
+        new pg.Pool({
+          connectionString:
+            process.env.DATABASE_URL ?? 'postgres://arroba:arroba@localhost:5432/arroba_direta',
+        }),
+    },
+    { provide: DB, useFactory: (pool: pg.Pool) => drizzle(pool, { schema }), inject: [POOL] },
+  ],
   exports: [DB],
 })
 export class DbModule implements OnApplicationShutdown {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(@Inject(POOL) private readonly pool: pg.Pool) {}
 
   async onApplicationShutdown() {
-    await pool.end();
+    await this.pool.end();
   }
 }

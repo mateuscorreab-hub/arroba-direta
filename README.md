@@ -41,14 +41,28 @@ pnpm --filter @arroba/api test:e2e   # testes da API contra o banco
 - Login pelo celular: `POST /auth/codigo` gera um código de 6 números (vale 10 minutos, até 5 pedidos por hora por telefone), `POST /auth/entrar` troca o código por uma sessão de 90 dias (5 tentativas erradas bloqueiam o código) e `POST /auth/sair` encerra a sessão. As rotas logadas usam `Authorization: Bearer <token>`.
 - Perfil: `GET /eu` e `PATCH /eu` (nome, município e estado). Só quem tem o perfil completo pode anunciar.
 - Envio do código: por enquanto só existe a versão de teste (`CODIGO_MODO=teste`, já configurada no Render), em que o código aparece na tela em vez de chegar por SMS. Nela qualquer pessoa entra com qualquer número, então não use dados reais.
+- Fotos e vídeo no anúncio: até 10 fotos e 1 vídeo de até 1 minuto por lote; a primeira foto é a capa nos cartões da busca. O app manda o arquivo direto para o Cloudinary com uma autorização assinada pela API (o segredo da conta nunca sai da API), e a API confere no Cloudinary o tamanho e a duração reais antes de aceitar. Rotas (só o vendedor do lote): `POST /lotes/:id/midias/envio`, `POST /lotes/:id/midias`, `PATCH /lotes/:id/midias/ordem` e `DELETE /lotes/:id/midias/:midiaId`. `GET /lotes` traz a `capa` de cada lote e `GET /lotes/:id` traz também as `midias` em ordem.
 - Banco: tabelas de usuários, sessões, códigos de login, lotes, mídias, propostas, pedidos, documentos (GTA, nota, atestado, ticket de balança) e avaliações.
 - Site: página inicial, lista de lotes com filtros e página de cada lote.
 - App: abas Buscar (lista com filtro por categoria), Anunciar (formulário validado) e Perfil, e tela de detalhe do lote.
 
+## Fotos e vídeo: onde ficam os arquivos
+
+A variável `MIDIA_ARMAZENAMENTO` escolhe o armazenamento (`cloudinary`, `local` ou `desligado`). Sem ela, a API usa o Cloudinary se `CLOUDINARY_URL` existir; no Render, sem `CLOUDINARY_URL`, o envio fica desligado (o disco de lá é apagado a cada reinício) e o app mostra o aviso; no computador, usa a pasta local.
+
+**Desenvolvimento (local):** os arquivos ficam em `apps/api/uploads` (fora do git) e a própria API faz o papel do Cloudinary (`POST /midias/local` recebe o envio e `GET /arquivos/...` serve os arquivos). Para testar no celular, ponha em `API_URL_PUBLICA` o mesmo endereço do `EXPO_PUBLIC_API_URL` (o IP da sua máquina na rede), senão os links das fotos apontam para `localhost`. No modo local não há conversão: foto HEIC do iPhone não aparece no navegador, e a capa do vídeo é uma imagem fixa.
+
+**Ligar o Cloudinary no Render (plano grátis):**
+
+1. Crie uma conta em cloudinary.com.
+2. No painel do Cloudinary, abra Settings > API Keys e copie o "API environment variable" (`cloudinary://API_KEY:API_SECRET@CLOUD_NAME`).
+3. No painel do Render, abra o serviço `arroba-api` > Environment, cole o valor em `CLOUDINARY_URL` e salve. O Render publica de novo sozinho.
+4. Confira no log da API a linha "Fotos e vídeo no Cloudinary (conta ...)". Se o valor estiver errado, a API não sobe e o log diz o porquê.
+
 ## Próximos passos
 
 1. Enviar o código de login por SMS/WhatsApp (`CODIGO_MODO=sms`), com limite de pedidos por IP antes de ligar, e verificação de documento.
-2. Fotos e vídeo no anúncio, localização pelo GPS, rascunho offline.
+2. Localização pelo GPS e rascunho offline. Nas fotos: moderação antes de publicar e limpeza dos arquivos que foram enviados mas nunca registrados.
 3. Chat e propostas entre comprador e vendedor.
 4. Pagamento protegido (Pix com custódia e split) via provedor de pagamento.
 5. Checklist de GTA e documentos no pedido.

@@ -26,7 +26,22 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Arroba Direta usa suas fotos e vídeos para você mostrar o gado no anúncio.",
+          "cameraPermission": "O Arroba Direta usa a câmera para você fotografar o gado do anúncio.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

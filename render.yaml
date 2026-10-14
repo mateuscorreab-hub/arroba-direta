@@ -29,6 +29,12 @@ services:
       # Versão de teste: sem SMS, o código de login aparece na tela do app.
       - key: CODIGO_MODO
         value: teste
+      # Fotos e vídeo dos anúncios. O valor não fica neste arquivo (tem o segredo da conta):
+      # cole no painel do Render (arroba-api > Environment) o "API environment variable" do
+      # Cloudinary, no formato cloudinary://API_KEY:API_SECRET@CLOUD_NAME. Sem ele o envio de
+      # fotos fica desligado (o disco do Render é apagado a cada reinício). Valor errado: a API não sobe.
+      - key: CLOUDINARY_URL
+        sync: false
 
   - type: web
     name: arroba-site
