@@ -13,8 +13,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="pt-BR" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
         <header className="border-b border-borda">
-          <nav className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-4">
-            <Link href="/" className="text-xl font-bold text-marca">
+          <nav className="mx-auto flex max-w-5xl items-center gap-4 whitespace-nowrap px-4 py-4 sm:gap-6">
+            <Link href="/" className="mr-auto text-lg font-bold text-marca sm:mr-0 sm:text-xl">
               Arroba Direta
             </Link>
             <Link href="/lotes" className="text-sm">

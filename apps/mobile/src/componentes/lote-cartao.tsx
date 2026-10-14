@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import type { Lote } from '@arroba/shared';
 
 import { Texto } from '@/componentes/texto';
@@ -12,23 +12,24 @@ export function LoteCartao({ lote }: { lote: Lote }) {
   return (
     <Link href={{ pathname: '/lote/[id]', params: { id: lote.id } }} asChild>
       <Pressable
-        style={[estilos.cartao, { backgroundColor: tema.backgroundElement, borderColor: tema.border }]}>
+        // Filho de <Link asChild> precisa de estilo achatado (exigência do expo-router na web).
+        style={StyleSheet.flatten([
+          estilos.cartao,
+          { backgroundColor: tema.backgroundElement, borderColor: tema.border },
+        ])}>
         <Texto tipo="pequeno" cor="textSecondary">
           {lote.municipio}/{lote.uf}
           {lote.distanciaKm !== undefined ? ` · ${lote.distanciaKm} km` : ''}
         </Texto>
         <Texto tipo="subtitulo">{lote.titulo}</Texto>
         <Texto>{resumoDoLote(lote)}</Texto>
-        <View style={estilos.rodape}>
-          <Texto tipo="destaque" cor="brand">
-            {precoDoLote(lote)}
-          </Texto>
-          {lote.vendedor.verificado && (
-            <Texto tipo="pequeno" cor="brand">
-              ✓ verificado
-            </Texto>
-          )}
-        </View>
+        <Texto tipo="destaque" cor="brand" style={estilos.preco}>
+          {precoDoLote(lote)}
+        </Texto>
+        <Texto tipo="pequeno" cor="textSecondary">
+          {lote.vendedor.nome}
+          {lote.vendedor.verificado ? ' · ✓ verificado' : ''}
+        </Texto>
       </Pressable>
     </Link>
   );
@@ -36,10 +37,5 @@ export function LoteCartao({ lote }: { lote: Lote }) {
 
 const estilos = StyleSheet.create({
   cartao: { borderWidth: 1, borderRadius: 14, padding: Spacing.three, gap: Spacing.one },
-  rodape: {
-    marginTop: Spacing.two,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  preco: { marginTop: Spacing.two },
 });
