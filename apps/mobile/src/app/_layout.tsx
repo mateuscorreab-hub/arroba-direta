@@ -10,7 +10,11 @@ export default function RootLayout() {
       <ThemeProvider value={esquema === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(abas)" options={{ headerShown: false }} />
-          <Stack.Screen name="lote/[id]" options={{ title: 'Lote', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="lote/[id]/index" options={{ title: 'Lote', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen
+            name="lote/[id]/midias"
+            options={{ title: 'Fotos e vídeo do lote', headerBackTitle: 'Voltar' }}
+          />
         </Stack>
       </ThemeProvider>
     </ProvedorSessao>

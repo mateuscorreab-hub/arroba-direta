@@ -24,3 +24,16 @@ export function mascararTelefone(texto: string): string {
   if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
+
+/** 45 s, 1 min, 1 min 20 s. */
+export function duracaoTexto(segundos: number): string {
+  const total = Math.round(segundos);
+  if (total < 60) return `${total} s`;
+  const resto = total % 60;
+  return `${Math.floor(total / 60)} min${resto ? ` ${resto} s` : ''}`;
+}
+
+/** 0,4 MB, 12,5 MB. */
+export function tamanhoTexto(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
+}
