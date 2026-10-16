@@ -7,6 +7,7 @@ import {
   MAX_VIDEOS_LOTE,
   MIMES_FOTO,
   MIMES_VIDEO,
+  MIN_FOTOS_PUBLICAR,
   VIDEO_MAX_BYTES,
   VIDEO_MAX_SEGUNDOS,
   duracaoVideoAceita,
@@ -32,6 +33,12 @@ describe('limites', () => {
     expect(VIDEO_MAX_SEGUNDOS).toBe(60);
     expect(LIMITES_MIDIA.foto).toEqual({ maximo: 10, maxBytes: 10 * MB, mimes: MIMES_FOTO });
     expect(LIMITES_MIDIA.video).toEqual({ maximo: 1, maxBytes: 100 * MB, mimes: MIMES_VIDEO });
+  });
+
+  it('o mínimo de fotos para publicar cabe no lote (0 deixa publicar sem foto)', () => {
+    expect(Number.isInteger(MIN_FOTOS_PUBLICAR)).toBe(true);
+    expect(MIN_FOTOS_PUBLICAR).toBeGreaterThanOrEqual(0);
+    expect(MIN_FOTOS_PUBLICAR).toBeLessThanOrEqual(MAX_FOTOS_LOTE);
   });
 
   it('aceita vídeo de até 62 segundos', () => {

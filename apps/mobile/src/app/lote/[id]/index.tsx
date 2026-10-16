@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { CATEGORIA_ROTULO, type Lote } from '@arroba/shared';
 
+import { Aviso } from '@/componentes/aviso';
 import { Botao } from '@/componentes/botao';
 import { GaleriaLote, LARGURA_MAXIMA } from '@/componentes/galeria-lote';
 import { Texto } from '@/componentes/texto';
@@ -11,6 +12,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { obterLote, textoDoErro } from '@/lib/api';
 import { precoDoLote } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
+
+// Só o vendedor vê: o lote fora da busca precisa dizer por quê, senão ele acha que deu errado e anuncia de novo.
+const AVISO_DO_STATUS: Record<string, string> = {
+  em_analise: 'Anúncio enviado! Ele aparece na busca depois de uma revisão rápida.',
+  rascunho: 'Este anúncio ainda não foi publicado.',
+};
 
 export default function LoteDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,6 +71,7 @@ export default function LoteDetalhe() {
 
   const categoria = CATEGORIA_ROTULO[lote.categoria];
   const souVendedor = sessao.usuario?.id === lote.vendedor.id;
+  const avisoStatus = souVendedor ? AVISO_DO_STATUS[lote.status] : undefined;
   const ficha: [string, string][] = [
     ['Categoria', categoria],
     ['Raça', lote.raca],
@@ -80,6 +88,7 @@ export default function LoteDetalhe() {
       <View style={estilos.coluna}>
         <GaleriaLote midias={lote.midias ?? []} categoria={categoria} titulo={lote.titulo} />
         <View style={estilos.conteudo}>
+          {avisoStatus && <Aviso>{avisoStatus}</Aviso>}
           {souVendedor && (
             <Botao
               titulo="Fotos e vídeo do lote"

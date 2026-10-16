@@ -15,6 +15,7 @@ import {
   duracaoVideoAceita,
   mensagemTamanho,
   type EnvioMidia,
+  type EstadoMidias,
   type Midia,
   type PedidoEnvioMidia,
   type RegistrarMidia,
@@ -40,6 +41,8 @@ const mensagemLimite = (tipo: TipoMidia) =>
   tipo === 'foto'
     ? `Este lote já tem ${LIMITES_MIDIA.foto.maximo} fotos.`
     : 'Este lote já tem um vídeo. Apague o atual para enviar outro.';
+
+const MENSAGEM_DESLIGADO = 'O envio de fotos e vídeos ainda não está ligado nesta versão.';
 
 const envioInvalido = () => new BadRequestException({ mensagem: 'Envio inválido. Tente de novo.' });
 
@@ -73,22 +76,29 @@ export class MidiasService {
     @Inject(ARMAZENAMENTO) private readonly armazenamento: Armazenamento | null,
   ) {}
 
+  estado(): EstadoMidias {
+    return this.armazenamento ? { ligado: true, mensagem: null } : { ligado: false, mensagem: MENSAGEM_DESLIGADO };
+  }
+
   private ligado(): Armazenamento {
-    if (!this.armazenamento) {
-      throw new ServiceUnavailableException({
-        mensagem: 'O envio de fotos e vídeos ainda não está ligado nesta versão.',
-      });
-    }
+    if (!this.armazenamento) throw new ServiceUnavailableException({ mensagem: MENSAGEM_DESLIGADO });
     return this.armazenamento;
   }
 
-  async pedirEnvio(loteId: string, { tipo, mime }: PedidoEnvioMidia): Promise<EnvioMidia> {
-    const armazenamento = this.ligado();
+  /** Quantas fotos (ou vídeos) o lote tem. */
+  async contar(loteId: string, tipo: TipoMidia): Promise<number> {
     const [{ total }] = await this.db
       .select({ total: sql<number>`count(*)::int` })
       .from(midias)
       .where(and(eq(midias.loteId, loteId), eq(midias.tipo, tipo)));
-    if (total >= LIMITES_MIDIA[tipo].maximo) throw new ConflictException({ mensagem: mensagemLimite(tipo) });
+    return total;
+  }
+
+  async pedirEnvio(loteId: string, { tipo, mime }: PedidoEnvioMidia): Promise<EnvioMidia> {
+    const armazenamento = this.ligado();
+    if ((await this.contar(loteId, tipo)) >= LIMITES_MIDIA[tipo].maximo) {
+      throw new ConflictException({ mensagem: mensagemLimite(tipo) });
+    }
     return armazenamento.prepararEnvio({
       loteId,
       tipo,

@@ -12,7 +12,7 @@ import { FOTO_MAX_BYTES, type EnvioMidia, type Midia } from '@arroba/shared';
 import { AppModule } from '../app.module.js';
 import { DB, type Db } from '../db/db.module.js';
 import { lotes, midias } from '../db/schema.js';
-import { ApoioE2e, enviarLocal } from './apoio-e2e.teste.js';
+import { ApoioE2e, adicionarLocal, enviarLocal, esperarBloqueados } from './apoio-e2e.teste.js';
 import { jpg, mp4, png } from './arquivos-falsos.teste.js';
 import { assinarTicket } from './local.js';
 
@@ -61,15 +61,8 @@ describe('Fotos e vídeo (e2e, armazenamento local)', () => {
     return http_().post(`/lotes/${loteId}/midias`).set('Authorization', auth).send(corpo);
   }
 
-  /** Ticket, envio e registro. Devolve a mídia e a resposta do envio. */
-  async function adicionar(auth: string, loteId: string, arquivo = png(800, 600), tipo: 'foto' | 'video' = 'foto') {
-    const mime = tipo === 'foto' ? 'image/png' : 'video/mp4';
-    const envio: EnvioMidia = (await pedirEnvio(auth, loteId, tipo, mime, arquivo.length).expect(201)).body;
-    const enviado = await enviarLocal(app, envio, arquivo, tipo === 'foto' ? 'foto.png' : 'video.mp4', mime).expect(200);
-    const { public_id, version, signature } = enviado.body;
-    const res = await registrar(auth, loteId, { tipo, publicId: public_id, versao: version, assinatura: signature }).expect(201);
-    return { midia: res.body as Midia, enviado: enviado.body };
-  }
+  const adicionar = (auth: string, loteId: string, arquivo?: Buffer, tipo?: 'foto' | 'video') =>
+    adicionarLocal(app, auth, loteId, arquivo, tipo);
 
   const arquivoDe = (url: string) => path.join(pasta, ...new URL(url).pathname.replace('/arquivos/', '').split('/'));
 
@@ -498,20 +491,6 @@ describe('Fotos e vídeo (e2e, armazenamento local)', () => {
     });
   });
 });
-
-/** Espera até n conexões deste banco estarem paradas esperando uma trava. */
-async function esperarBloqueados(cliente: pg.Client, n: number) {
-  for (let i = 0; i < 200; i++) {
-    // Dentro de uma transação o pg_stat_activity fica congelado; limpa a cópia a cada volta.
-    await cliente.query('select pg_stat_clear_snapshot()');
-    const { rows } = await cliente.query(
-      "select count(*)::int as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
-    );
-    if (rows[0].n >= n) return;
-    await new Promise((ok) => setTimeout(ok, 25));
-  }
-  throw new Error(`Os ${n} registros não chegaram à trava`);
-}
 
 /** Sobe o servidor numa porta livre entre 3400 e 3499 (para mandar "../" sem o cliente HTTP normalizar). */
 async function escutar(servidor: http.Server): Promise<number> {

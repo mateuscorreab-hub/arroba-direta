@@ -23,6 +23,7 @@ export function CampoTexto({ rotulo, erro, style, ...rest }: Props) {
         style={[
           estilos.entrada,
           { color: tema.text, borderColor: erro ? tema.danger : tema.border, backgroundColor: tema.backgroundElement },
+          rest.editable === false && estilos.apagado,
           style,
         ]}
       />
@@ -38,4 +39,5 @@ export function CampoTexto({ rotulo, erro, style, ...rest }: Props) {
 const estilos = StyleSheet.create({
   campo: { gap: Spacing.one },
   entrada: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, fontSize: 17, minHeight: 50 },
+  apagado: { opacity: 0.6 },
 });
