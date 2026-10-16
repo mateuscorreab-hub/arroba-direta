@@ -1,5 +1,5 @@
 {
-  "id": "916e9566-7eb4-486c-95ac-3a22c9b504a9",
+  "id": "0425484e-0377-42be-8898-8c33e6182d7d",
   "prevId": "afe43a6f-4f3a-477c-9222-4c3d903bda25",
   "version": "7",
   "dialect": "postgresql",
@@ -177,162 +177,6 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.conversas": {
-      "name": "conversas",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "lote_id": {
-          "name": "lote_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "comprador_id": {
-          "name": "comprador_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "vendedor_id": {
-          "name": "vendedor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "lido_comprador_em": {
-          "name": "lido_comprador_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lido_vendedor_em": {
-          "name": "lido_vendedor_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "atualizado_em": {
-          "name": "atualizado_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "criado_em": {
-          "name": "criado_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "conversas_comprador_idx": {
-          "name": "conversas_comprador_idx",
-          "columns": [
-            {
-              "expression": "comprador_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "atualizado_em",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "conversas_vendedor_idx": {
-          "name": "conversas_vendedor_idx",
-          "columns": [
-            {
-              "expression": "vendedor_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "atualizado_em",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "conversas_lote_id_lotes_id_fk": {
-          "name": "conversas_lote_id_lotes_id_fk",
-          "tableFrom": "conversas",
-          "tableTo": "lotes",
-          "columnsFrom": [
-            "lote_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "conversas_comprador_id_usuarios_id_fk": {
-          "name": "conversas_comprador_id_usuarios_id_fk",
-          "tableFrom": "conversas",
-          "tableTo": "usuarios",
-          "columnsFrom": [
-            "comprador_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "conversas_vendedor_id_usuarios_id_fk": {
-          "name": "conversas_vendedor_id_usuarios_id_fk",
-          "tableFrom": "conversas",
-          "tableTo": "usuarios",
-          "columnsFrom": [
-            "vendedor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "conversas_lote_comprador_unique": {
-          "name": "conversas_lote_comprador_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "lote_id",
-            "comprador_id"
-          ]
-        }
-      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -578,126 +422,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.mensagens": {
-      "name": "mensagens",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "conversa_id": {
-          "name": "conversa_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "autor_id": {
-          "name": "autor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "tipo": {
-          "name": "tipo",
-          "type": "tipo_mensagem",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "texto": {
-          "name": "texto",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "proposta_id": {
-          "name": "proposta_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "criado_em": {
-          "name": "criado_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "mensagens_conversa_idx": {
-          "name": "mensagens_conversa_idx",
-          "columns": [
-            {
-              "expression": "conversa_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "criado_em",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "mensagens_conversa_id_conversas_id_fk": {
-          "name": "mensagens_conversa_id_conversas_id_fk",
-          "tableFrom": "mensagens",
-          "tableTo": "conversas",
-          "columnsFrom": [
-            "conversa_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "mensagens_autor_id_usuarios_id_fk": {
-          "name": "mensagens_autor_id_usuarios_id_fk",
-          "tableFrom": "mensagens",
-          "tableTo": "usuarios",
-          "columnsFrom": [
-            "autor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "mensagens_proposta_id_propostas_id_fk": {
-          "name": "mensagens_proposta_id_propostas_id_fk",
-          "tableFrom": "mensagens",
-          "tableTo": "propostas",
-          "columnsFrom": [
-            "proposta_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.midias": {
       "name": "midias",
       "schema": "",
@@ -733,9 +457,80 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "public_id": {
+          "name": "public_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versao": {
+          "name": "versao",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "armazenamento": {
+          "name": "armazenamento",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "largura": {
+          "name": "largura",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "altura": {
+          "name": "altura",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duracao_seg": {
+          "name": "duracao_seg",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "midias_lote_ordem_idx": {
+          "name": "midias_lote_ordem_idx",
+          "columns": [
+            {
+              "expression": "lote_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ordem",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "midias_lote_id_lotes_id_fk": {
           "name": "midias_lote_id_lotes_id_fk",
@@ -752,7 +547,15 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "midias_public_id_unique": {
+          "name": "midias_public_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "public_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -855,20 +658,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "conversa_id": {
-          "name": "conversa_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "comprador_id": {
           "name": "comprador_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "autor_id": {
-          "name": "autor_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -907,7 +698,7 @@
         },
         "data_embarque": {
           "name": "data_embarque",
-          "type": "date",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -925,18 +716,6 @@
           "notNull": true,
           "default": "'enviada'"
         },
-        "expira_em": {
-          "name": "expira_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "respondida_em": {
-          "name": "respondida_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "criado_em": {
           "name": "criado_em",
           "type": "timestamp with time zone",
@@ -945,45 +724,7 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "propostas_aberta_por_conversa_idx": {
-          "name": "propostas_aberta_por_conversa_idx",
-          "columns": [
-            {
-              "expression": "conversa_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"propostas\".\"status\" = 'enviada'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "propostas_lote_status_idx": {
-          "name": "propostas_lote_status_idx",
-          "columns": [
-            {
-              "expression": "lote_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "propostas_lote_id_lotes_id_fk": {
           "name": "propostas_lote_id_lotes_id_fk",
@@ -998,38 +739,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "propostas_conversa_id_conversas_id_fk": {
-          "name": "propostas_conversa_id_conversas_id_fk",
-          "tableFrom": "propostas",
-          "tableTo": "conversas",
-          "columnsFrom": [
-            "conversa_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "propostas_comprador_id_usuarios_id_fk": {
           "name": "propostas_comprador_id_usuarios_id_fk",
           "tableFrom": "propostas",
           "tableTo": "usuarios",
           "columnsFrom": [
             "comprador_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "propostas_autor_id_usuarios_id_fk": {
-          "name": "propostas_autor_id_usuarios_id_fk",
-          "tableFrom": "propostas",
-          "tableTo": "usuarios",
-          "columnsFrom": [
-            "autor_id"
           ],
           "columnsTo": [
             "id"
@@ -1256,15 +971,6 @@
         "aceita",
         "recusada",
         "expirada"
-      ]
-    },
-    "public.tipo_mensagem": {
-      "name": "tipo_mensagem",
-      "schema": "public",
-      "values": [
-        "texto",
-        "proposta",
-        "sistema"
       ]
     },
     "public.unidade_preco": {

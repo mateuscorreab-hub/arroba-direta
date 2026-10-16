@@ -8,6 +8,9 @@
   --borda: #e3dfd3;
   --marca: #2f6b2a;
   --marca-texto: #ffffff;
+  /* Fundo atrás das fotos e do vídeo, e das etiquetas sobre eles. */
+  --palco: #1f2a1c;
+  --palco-texto: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,6 +22,7 @@
     --borda: #2c3529;
     --marca: #7cc46f;
     --marca-texto: #10200d;
+    --palco: #0b0e0a;
   }
 }
 
@@ -30,6 +34,8 @@
   --color-borda: var(--borda);
   --color-marca: var(--marca);
   --color-marca-texto: var(--marca-texto);
+  --color-palco: var(--palco);
+  --color-palco-texto: var(--palco-texto);
 }
 
 body {

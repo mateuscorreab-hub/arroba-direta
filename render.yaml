@@ -33,6 +33,17 @@ services:
       # Trocar para "manual" quando existir o painel de moderação.
       - key: APROVACAO_LOTES
         value: automatica
+      # Fotos e vídeo dos anúncios na conta do Cloudinary. Os valores não ficam neste arquivo (têm o
+      # segredo da conta): preencha no painel do Render (arroba-api > Environment) com o que aparece no
+      # painel do Cloudinary, em Settings > API Keys (Cloud name, API Key e API Secret). Sem as três, o
+      # envio de fotos fica desligado (o disco do Render é apagado a cada reinício). Só parte delas ou
+      # valor errado: a API não sobe e o log diz o que falta.
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
   - type: web
     name: arroba-site

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CATEGORIA_ROTULO, VACINAS } from "@arroba/shared";
+import { GaleriaLote } from "@/components/galeria-lote";
+import { SemFoto } from "@/components/sem-foto";
 import { ErroApi, obterLote } from "@/lib/api";
 import { precoDoLote, resumoDoLote } from "@/lib/formato";
 
@@ -34,22 +36,41 @@ async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
     ["Vermifugado", lote.sanidade.vermifugado ? "Sim" : "Não informado"],
   ];
 
+  const midias = lote.midias ?? [];
+
   return (
     <article className="space-y-6">
-      <div>
-        <p className="text-sm text-suave">{resumoDoLote(lote)}</p>
-        <h1 className="mt-1 text-3xl font-bold">{lote.titulo}</h1>
-        <p className="mt-3 text-2xl font-bold text-marca">{precoDoLote(lote)}</p>
-      </div>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <div className="min-w-0 lg:col-span-3">
+          {midias.length > 0 ? (
+            <GaleriaLote midias={midias} titulo={lote.titulo} />
+          ) : (
+            <div className="aspect-video overflow-hidden rounded-xl lg:aspect-4/3">
+              <SemFoto
+                rotulo={CATEGORIA_ROTULO[lote.categoria]}
+                texto="O vendedor ainda não colocou fotos deste lote."
+              />
+            </div>
+          )}
+        </div>
 
-      <dl className="grid gap-x-8 gap-y-3 rounded-xl border border-borda bg-cartao p-5 sm:grid-cols-2">
-        {ficha.map(([k, v]) => (
-          <div key={k}>
-            <dt className="text-sm text-suave">{k}</dt>
-            <dd className="font-medium">{v}</dd>
+        <div className="min-w-0 space-y-6 lg:col-span-2">
+          <div>
+            <p className="text-sm text-suave">{resumoDoLote(lote)}</p>
+            <h1 className="mt-1 text-3xl font-bold">{lote.titulo}</h1>
+            <p className="mt-3 text-2xl font-bold text-marca">{precoDoLote(lote)}</p>
           </div>
-        ))}
-      </dl>
+
+          <dl className="grid gap-x-8 gap-y-3 rounded-xl border border-borda bg-cartao p-5 sm:grid-cols-2">
+            {ficha.map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-sm text-suave">{k}</dt>
+                <dd className="font-medium">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
 
       {lote.descricao && <p className="whitespace-pre-line">{lote.descricao}</p>}
 

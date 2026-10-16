@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   date,
   doublePrecision,
@@ -23,6 +24,7 @@ import {
   STATUS_PEDIDO,
   STATUS_PROPOSTA,
   TIPOS_MENSAGEM,
+  TIPOS_MIDIA,
   UNIDADES_PRECO,
   type Sanidade,
   type UnidadeProposta,
@@ -108,15 +110,30 @@ export const lotes = pgTable(
   (t) => [index('lotes_busca_idx').on(t.status, t.categoria, t.uf)],
 );
 
-export const midias = pgTable('midias', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  loteId: uuid('lote_id')
-    .notNull()
-    .references(() => lotes.id, { onDelete: 'cascade' }),
-  tipo: text('tipo', { enum: ['foto', 'video'] }).notNull(),
-  url: text('url').notNull(),
-  ordem: integer('ordem').notNull().default(0),
-});
+/** Fotos e vídeo do lote. A capa é a primeira foto pela ordem (ou o vídeo, se não houver foto). */
+export const midias = pgTable(
+  'midias',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    loteId: uuid('lote_id')
+      .notNull()
+      .references(() => lotes.id, { onDelete: 'cascade' }),
+    tipo: text('tipo', { enum: TIPOS_MIDIA }).notNull(),
+    url: text('url').notNull(),
+    ordem: integer('ordem').notNull().default(0),
+    // Único: registrar o mesmo envio duas vezes não duplica a mídia.
+    publicId: text('public_id').notNull().unique(),
+    // No Cloudinary é um timestamp em segundos; bigint para não estourar em 2038.
+    versao: bigint('versao', { mode: 'number' }),
+    armazenamento: text('armazenamento', { enum: ['cloudinary', 'local'] }).notNull(),
+    largura: integer('largura'),
+    altura: integer('altura'),
+    duracaoSeg: doublePrecision('duracao_seg'),
+    bytes: integer('bytes').notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index('midias_lote_ordem_idx').on(t.loteId, t.ordem)],
+);
 
 /** Uma conversa por comprador e lote. O vendedor é copiado do lote. */
 export const conversas = pgTable(

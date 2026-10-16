@@ -76,9 +76,8 @@ export default function Anunciar() {
 }
 
 /**
- * Primeira versão do formulário de anúncio.
- * Próximos passos: fotos e vídeo (expo-image-picker), localização pelo GPS,
- * sanidade e rascunho salvo offline.
+ * Primeira versão do formulário de anúncio. Fotos e vídeo vêm logo depois, em /lote/[id]/midias.
+ * Próximos passos: localização pelo GPS, sanidade e rascunho salvo offline.
  */
 function FormularioLote({ usuario }: { usuario: Eu }) {
   const vazio = {
@@ -134,6 +133,7 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
             ? 'Anúncio publicado! Seu lote já aparece na busca.'
             : 'Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida.',
       });
+      router.push({ pathname: '/lote/[id]/midias', params: { id: lote.id, novo: '1' } });
     } catch (e) {
       // 401: a sessão já foi encerrada pela API; leva a pessoa para entrar de novo.
       if (e instanceof ErroApi && e.status === 401) {
