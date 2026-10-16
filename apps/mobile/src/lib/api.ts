@@ -3,6 +3,7 @@ import {
   mensagemTamanho,
   type Entrar,
   type EnvioMidia,
+  type EstadoMidias,
   type Eu,
   type Lote,
   type LoteCriar,
@@ -131,8 +132,14 @@ export function obterLote(id: string) {
   return requisitar<Lote>(`/lotes/${id}`);
 }
 
-export function criarLote(dados: LoteCriar) {
-  return requisitar<Lote>('/lotes', enviar('POST', dados), tokenAtual);
+/** Com rascunho, o lote fica guardado fora da busca até publicarLote (o app envia as fotos antes). */
+export function criarLote(dados: LoteCriar, opcoes: { rascunho?: boolean } = {}) {
+  return requisitar<Lote>(opcoes.rascunho ? '/lotes?rascunho=1' : '/lotes', enviar('POST', dados), tokenAtual);
+}
+
+/** Tira o lote do rascunho e manda para a revisão. Repetir não faz mal: o lote já publicado volta como está. */
+export function publicarLote(id: string) {
+  return requisitar<Lote>(`/lotes/${id}/publicar`, enviar('POST'), tokenAtual);
 }
 
 export function solicitarCodigo(dados: SolicitarCodigo) {
@@ -154,6 +161,10 @@ export function obterEu() {
 
 export function atualizarPerfil(dados: Perfil) {
   return requisitar<Eu>('/eu', enviar('PATCH', dados), tokenAtual);
+}
+
+export function obterEstadoMidias() {
+  return requisitar<EstadoMidias>('/midias/estado');
 }
 
 export function pedirEnvioMidia(loteId: string, dados: PedidoEnvioMidia) {

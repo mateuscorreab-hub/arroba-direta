@@ -37,11 +37,11 @@ pnpm --filter @arroba/api test:e2e   # testes da API contra o banco
 
 ## O que já funciona
 
-- API: `GET /saude`, `GET /lotes` (filtros por categoria, UF, raça, quantidade, preço e raio em km), `GET /lotes/:id`, `POST /lotes` (exige login e perfil completo; validação com mensagens em português).
+- API: `GET /saude`, `GET /lotes` (filtros por categoria, UF, raça, quantidade, preço e raio em km), `GET /lotes/:id`, `POST /lotes` (exige login e perfil completo; validação com mensagens em português; com `?rascunho=1` o lote nasce em rascunho, fora da busca) e `POST /lotes/:id/publicar` (só o vendedor; tira do rascunho e manda para análise, exigindo pelo menos uma foto quando o envio de fotos está ligado).
 - Login pelo celular: `POST /auth/codigo` gera um código de 6 números (vale 10 minutos, até 5 pedidos por hora por telefone), `POST /auth/entrar` troca o código por uma sessão de 90 dias (5 tentativas erradas bloqueiam o código) e `POST /auth/sair` encerra a sessão. As rotas logadas usam `Authorization: Bearer <token>`.
 - Perfil: `GET /eu` e `PATCH /eu` (nome, município e estado). Só quem tem o perfil completo pode anunciar.
 - Envio do código: por enquanto só existe a versão de teste (`CODIGO_MODO=teste`, já configurada no Render), em que o código aparece na tela em vez de chegar por SMS. Nela qualquer pessoa entra com qualquer número, então não use dados reais.
-- Fotos e vídeo no anúncio: até 10 fotos (até 10 MB cada) e 1 vídeo de até 1 minuto (até 100 MB) por lote; a primeira foto é a capa nos cartões da busca. O app manda o arquivo direto para o Cloudinary com uma autorização assinada pela API (o segredo da conta nunca sai da API), e a API confere no Cloudinary o tamanho e a duração reais antes de aceitar (vídeo sem duração conhecida é recusado). Rotas (só o vendedor do lote): `POST /lotes/:id/midias/envio`, `POST /lotes/:id/midias`, `PATCH /lotes/:id/midias/ordem` e `DELETE /lotes/:id/midias/:midiaId`. `GET /lotes` traz a `capa` de cada lote e `GET /lotes/:id` traz também as `midias` em ordem.
+- Fotos e vídeo no anúncio: até 10 fotos (até 10 MB cada) e 1 vídeo de até 1 minuto (até 100 MB) por lote; a primeira foto é a capa nos cartões da busca. O app manda o arquivo direto para o Cloudinary com uma autorização assinada pela API (o segredo da conta nunca sai da API), e a API confere no Cloudinary o tamanho e a duração reais antes de aceitar (vídeo sem duração conhecida é recusado). Rotas (só o vendedor do lote, também no rascunho): `POST /lotes/:id/midias/envio`, `POST /lotes/:id/midias`, `PATCH /lotes/:id/midias/ordem` e `DELETE /lotes/:id/midias/:midiaId`; `GET /midias/estado` (sem login) diz se o envio está ligado. `GET /lotes` traz a `capa` de cada lote e `GET /lotes/:id` traz também as `midias` em ordem.
 - Banco: tabelas de usuários, sessões, códigos de login, lotes, mídias, propostas, pedidos, documentos (GTA, nota, atestado, ticket de balança) e avaliações.
 - Site: página inicial, lista de lotes com filtros e página de cada lote.
 - App: abas Buscar (lista com filtro por categoria), Anunciar (formulário validado) e Perfil, e tela de detalhe do lote.
@@ -64,7 +64,7 @@ No plano grátis do Cloudinary, foto vai até 10 MB e vídeo até 100 MB (os mes
 ## Próximos passos
 
 1. Enviar o código de login por SMS/WhatsApp (`CODIGO_MODO=sms`), com limite de pedidos por IP antes de ligar, e verificação de documento.
-2. Localização pelo GPS e rascunho offline. Nas fotos: moderação antes de publicar e limpeza dos arquivos que foram enviados mas nunca registrados.
+2. Localização pelo GPS e rascunho offline. Nas fotos: moderação antes de publicar e limpeza dos arquivos que foram enviados mas nunca registrados e dos rascunhos abandonados (com as fotos deles).
 3. Chat e propostas entre comprador e vendedor.
 4. Pagamento protegido (Pix com custódia e split) via provedor de pagamento.
 5. Checklist de GTA e documentos no pedido.

@@ -1,20 +1,38 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { duracaoVideoAceita, envioMidiaSchema, type Midia, type RespostaUpload } from '@arroba/shared';
+import { duracaoVideoAceita, envioMidiaSchema, type EstadoMidias, type Midia, type RespostaUpload } from '@arroba/shared';
 
-import { ErroApi, enviarArquivo, pedirEnvioMidia, registrarMidia, textoDoErro } from '@/lib/api';
+import {
+  ErroApi,
+  enviarArquivo,
+  obterEstadoMidias,
+  pedirEnvioMidia,
+  registrarMidia,
+  textoDoErro,
+} from '@/lib/api';
 import { medirArquivo, type ArquivoEscolhido } from '@/lib/escolher-midia';
 import { duracaoTexto } from '@/lib/formato';
 
 export type ItemEnvio = {
   chave: string;
   arquivo: ArquivoEscolhido;
-  estado: 'esperando' | 'enviando' | 'registrando' | 'erro';
+  /**
+   * pronto: escolhido no formulário de Anunciar, esperando o lote existir. enviado: já está no lote (só no
+   * formulário; na tela de edição o arquivo enviado sai da lista e entra nas mídias).
+   */
+  estado: 'pronto' | 'esperando' | 'enviando' | 'registrando' | 'enviado' | 'erro';
   /** De 0 a 1. */
   progresso: number;
   erro?: string;
   /** Falha de conexão ou do servidor. Arquivo fora do limite ou lote cheio não adianta repetir. */
   podeTentarDeNovo?: boolean;
+  /** Fora do limite de tamanho, tipo ou duração (problemaDoArquivo): não vai para o lote. */
+  foraDoLimite?: boolean;
+  /** A mídia registrada no lote, quando enviado. */
+  midia?: Midia;
 };
+
+/** Como terminou enviar(). */
+export type ResultadoEnvio = 'ok' | 'com-erro' | 'desligado' | 'sem-sessao' | 'cancelado';
 
 type Tarefa = { arquivo: ArquivoEscolhido; resposta?: RespostaUpload; controle?: AbortController };
 type Etapa = 'pedido' | 'envio' | 'registro';
@@ -29,44 +47,72 @@ export function problemaDoArquivo(a: ArquivoEscolhido, tamanho = a.tamanho): str
   return r.success ? null : (r.error.issues[0]?.message ?? 'Este arquivo não pode ser enviado.');
 }
 
+function mensagemDesligado(e: EstadoMidias): string | null {
+  return e.ligado ? null : (e.mensagem ?? 'O envio de fotos e vídeos não está ligado agora.');
+}
+
 /**
  * Envia um arquivo de cada vez (na internet fraca, vários juntos disputam o sinal e todos demoram):
  * pede a autorização à API, manda o arquivo direto para o armazenamento e registra no lote.
- * Cada mídia registrada entra em setMidias.
+ *
+ * Com loteId (tela de edição), cada arquivo vai assim que é escolhido e, registrado, sai da lista e entra em
+ * setMidias. Com loteId null (formulário de Anunciar, o lote ainda não existe), os arquivos ficam prontos até
+ * enviar(id), que manda todos na ordem da lista (a primeira foto vira a capa); os registrados ficam na lista.
  */
-export function useFilaEnvio(loteId: string, setMidias: Dispatch<SetStateAction<Midia[]>>) {
+export function useFilaEnvio(loteId: string | null, setMidias?: Dispatch<SetStateAction<Midia[]>>) {
+  const automatico = loteId !== null;
   const [itens, setItens] = useState<ItemEnvio[]>([]);
   const [desligado, setDesligado] = useState<string | null>(null);
+  // Cópia da lista para quem precisa dela sem esperar a tela atualizar (enviar diz como terminou).
+  const lista = useRef<ItemEnvio[]>([]);
   const tarefas = useRef(new Map<string, Tarefa>());
   const fila = useRef<string[]>([]);
+  const lote = useRef(loteId);
   const rodando = useRef(false);
+  const aoEsvaziar = useRef<(() => void)[]>([]);
   const encerrado = useRef(false);
+  const semSessao = useRef(false);
+  const foiDesligado = useRef(false);
   const contador = useRef(0);
 
   useEffect(() => {
     encerrado.current = false;
+    if (loteId) lote.current = loteId;
     const lista = tarefas.current;
-    let ativo = true;
-    // Descobre ao abrir a tela se o envio está desligado nesta versão, antes de a pessoa escolher os arquivos.
-    // Pedir a autorização não grava nada; se o lote já estiver cheio (409), a tela já mostra isso.
-    pedirEnvioMidia(loteId, { tipo: 'foto', mime: 'image/jpeg', tamanho: 1 }).catch((e: unknown) => {
-      if (ativo && e instanceof ErroApi && e.status === 503) setDesligado(e.message);
-    });
     return () => {
       // Saiu da tela: para o que estiver enviando.
-      ativo = false;
       encerrado.current = true;
       for (const t of lista.values()) t.controle?.abort();
     };
   }, [loteId]);
 
-  function atualizar(chave: string, mudanca: Partial<ItemEnvio>) {
-    setItens((l) => l.map((i) => (i.chave === chave ? { ...i, ...mudanca } : i)));
+  useEffect(() => {
+    let ativo = true;
+    // Ao abrir a tela, antes de a pessoa escolher os arquivos. Sem resposta, fica sem saber: se o envio estiver
+    // desligado, o primeiro pedido de envio volta 503 e a fila desliga.
+    obterEstadoMidias().then(
+      (e) => {
+        if (ativo) setDesligado(mensagemDesligado(e));
+      },
+      () => {},
+    );
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  function mudar(f: (l: ItemEnvio[]) => ItemEnvio[]) {
+    lista.current = f(lista.current);
+    setItens(lista.current);
   }
 
-  function falhar(chave: string, erro: string, podeTentarDeNovo: boolean) {
+  function atualizar(chave: string, mudanca: Partial<ItemEnvio>) {
+    mudar((l) => l.map((i) => (i.chave === chave ? { ...i, ...mudanca } : i)));
+  }
+
+  function falhar(chave: string, erro: string, podeTentarDeNovo: boolean, foraDoLimite = false) {
     if (!podeTentarDeNovo) tarefas.current.delete(chave);
-    atualizar(chave, { estado: 'erro', erro, podeTentarDeNovo });
+    atualizar(chave, { estado: 'erro', erro, podeTentarDeNovo, foraDoLimite });
   }
 
   async function rodar() {
@@ -80,11 +126,23 @@ export function useFilaEnvio(loteId: string, setMidias: Dispatch<SetStateAction<
       }
     } finally {
       rodando.current = false;
+      const esperando = aoEsvaziar.current;
+      aoEsvaziar.current = [];
+      for (const avisar of esperando) avisar();
     }
+  }
+
+  function esperarFila() {
+    return new Promise<void>((resolve) => {
+      if (rodando.current) aoEsvaziar.current.push(resolve);
+      else resolve();
+    });
   }
 
   async function enviarUm(chave: string, tarefa: Tarefa) {
     const { arquivo } = tarefa;
+    const loteDoEnvio = lote.current;
+    if (!loteDoEnvio) return;
     const continua = () => !encerrado.current && tarefas.current.get(chave) === tarefa;
     let etapa: Etapa = 'pedido';
     try {
@@ -98,10 +156,10 @@ export function useFilaEnvio(loteId: string, setMidias: Dispatch<SetStateAction<
         }
         const problema = problemaDoArquivo(arquivo, tamanho);
         if (problema) {
-          falhar(chave, problema, false);
+          falhar(chave, problema, false, true);
           return;
         }
-        const envio = await pedirEnvioMidia(loteId, { tipo: arquivo.tipo, mime: arquivo.mime, tamanho });
+        const envio = await pedirEnvioMidia(loteDoEnvio, { tipo: arquivo.tipo, mime: arquivo.mime, tamanho });
         if (!continua()) return;
         etapa = 'envio';
         tarefa.controle = new AbortController();
@@ -116,15 +174,16 @@ export function useFilaEnvio(loteId: string, setMidias: Dispatch<SetStateAction<
       if (!continua()) return;
       etapa = 'registro';
       atualizar(chave, { estado: 'registrando', progresso: 1 });
-      const midia = await registrarMidia(loteId, {
+      const midia = await registrarMidia(loteDoEnvio, {
         tipo: arquivo.tipo,
         publicId: resposta.public_id,
         versao: resposta.version,
         assinatura: resposta.signature,
       });
       tarefas.current.delete(chave);
-      setItens((l) => l.filter((i) => i.chave !== chave));
-      setMidias((l) => (l.some((m) => m.id === midia.id) ? l : [...l, midia]));
+      if (automatico) mudar((l) => l.filter((i) => i.chave !== chave));
+      else atualizar(chave, { estado: 'enviado', progresso: 1, midia });
+      setMidias?.((l) => (l.some((m) => m.id === midia.id) ? l : [...l, midia]));
     } catch (e) {
       if (!continua()) return;
       const status = e instanceof ErroApi ? e.status : 0;
@@ -134,6 +193,7 @@ export function useFilaEnvio(loteId: string, setMidias: Dispatch<SetStateAction<
       }
       // No envio direto, 401 é do Cloudinary (autorização vencida), não da sessão.
       if (status === 401 && etapa !== 'envio') {
+        semSessao.current = true;
         falhar(chave, 'Sua sessão terminou. Entre de novo para enviar.', false);
         return;
       }
@@ -159,28 +219,59 @@ export function useFilaEnvio(loteId: string, setMidias: Dispatch<SetStateAction<
   }
 
   function desligar(mensagem: string) {
+    foiDesligado.current = true;
     setDesligado(mensagem);
     tarefas.current.clear();
     fila.current = [];
-    setItens([]);
+    mudar((l) => l.filter((i) => i.estado === 'enviado'));
   }
 
   return {
     itens,
-    /** Mensagem da API quando o envio de fotos e vídeos não está ligado. */
+    /** Mensagem da API quando o envio de fotos e vídeos não está ligado (GET /midias/estado ou 503 no envio). */
     desligado,
+    /** A lista como está agora, para usar logo depois de um await (a da tela pode estar atrasada). */
+    listaAtual: () => lista.current,
     adicionar(arquivos: ArquivoEscolhido[]) {
       const novos = arquivos.map((arquivo): ItemEnvio => {
         contador.current += 1;
         const chave = `envio-${contador.current}`;
         const problema = problemaDoArquivo(arquivo);
-        if (problema) return { chave, arquivo, estado: 'erro', progresso: 0, erro: problema };
+        if (problema) return { chave, arquivo, estado: 'erro', progresso: 0, erro: problema, foraDoLimite: true };
         tarefas.current.set(chave, { arquivo });
-        fila.current.push(chave);
-        return { chave, arquivo, estado: 'esperando', progresso: 0 };
+        if (automatico) fila.current.push(chave);
+        return { chave, arquivo, estado: automatico ? 'esperando' : 'pronto', progresso: 0 };
       });
-      setItens((l) => [...l, ...novos]);
+      mudar((l) => [...l, ...novos]);
+      if (automatico) void rodar();
+    },
+    /**
+     * Manda para o lote o que está pronto e o que falhou mas pode ir de novo, na ordem da lista, e espera a fila
+     * esvaziar.
+     */
+    async enviar(id: string): Promise<ResultadoEnvio> {
+      lote.current = id;
+      semSessao.current = false;
+      foiDesligado.current = false;
+      const vai = (i: ItemEnvio) =>
+        i.estado === 'pronto' || (i.estado === 'erro' && !!i.podeTentarDeNovo && tarefas.current.has(i.chave));
+      const chaves = new Set(lista.current.filter(vai).map((i) => i.chave));
+      for (const chave of chaves) if (!fila.current.includes(chave)) fila.current.push(chave);
+      mudar((l) =>
+        l.map((i): ItemEnvio => (chaves.has(i.chave) ? { ...i, estado: 'esperando', progresso: 0, erro: undefined } : i)),
+      );
       void rodar();
+      await esperarFila();
+      // Sessão perdida derruba a tela (encerrado); quem chamou ainda precisa saber para levar a pessoa a entrar.
+      if (semSessao.current) return 'sem-sessao';
+      if (encerrado.current) return 'cancelado';
+      if (foiDesligado.current) return 'desligado';
+      return lista.current.some((i) => i.estado === 'erro' && !i.foraDoLimite) ? 'com-erro' : 'ok';
+    },
+    /** A API mostrou que o envio está ligado (foi ligado depois que a tela abriu): a escolha de arquivos volta. */
+    religar() {
+      foiDesligado.current = false;
+      setDesligado(null);
     },
     tentarDeNovo(chave: string) {
       if (!tarefas.current.has(chave) || fila.current.includes(chave)) return;
@@ -193,7 +284,21 @@ export function useFilaEnvio(loteId: string, setMidias: Dispatch<SetStateAction<
       tarefas.current.get(chave)?.controle?.abort();
       tarefas.current.delete(chave);
       fila.current = fila.current.filter((c) => c !== chave);
-      setItens((l) => l.filter((i) => i.chave !== chave));
+      mudar((l) => l.filter((i) => i.chave !== chave));
+    },
+    /** Passa o arquivo para o começo da lista (a primeira foto é a capa). */
+    usarComoCapa(chave: string) {
+      mudar((l) => {
+        const item = l.find((i) => i.chave === chave);
+        return item ? [item, ...l.filter((i) => i !== item)] : l;
+      });
+    },
+    /** Esvazia a lista depois que o anúncio foi publicado. */
+    limpar() {
+      for (const t of tarefas.current.values()) t.controle?.abort();
+      tarefas.current.clear();
+      fila.current = [];
+      mudar(() => []);
     },
   };
 }

@@ -7,6 +7,8 @@ export type TipoMidia = (typeof TIPOS_MIDIA)[number];
 
 export const MAX_FOTOS_LOTE = 10;
 export const MAX_VIDEOS_LOTE = 1;
+/** Fotos que o lote precisa ter para sair do rascunho (POST /lotes/:id/publicar), com o envio de fotos ligado. */
+export const MIN_FOTOS_PUBLICAR = 1;
 
 const MB = 1024 * 1024;
 /** 10 MB é o máximo de imagem que o plano grátis do Cloudinary aceita. */
@@ -142,4 +144,11 @@ export interface RespostaUpload {
   public_id: string;
   version: number;
   signature: string;
+}
+
+/** GET /midias/estado: se o envio de fotos e vídeos está ligado nesta versão. */
+export interface EstadoMidias {
+  ligado: boolean;
+  /** Por que está desligado (a mesma mensagem do 503), ou null. */
+  mensagem: string | null;
 }

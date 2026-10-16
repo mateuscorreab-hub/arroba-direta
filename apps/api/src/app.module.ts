@@ -10,7 +10,7 @@ import { ARMAZENAMENTO, type Armazenamento } from './midias/armazenamento.js';
 import { ArmazenamentoModule } from './midias/armazenamento.module.js';
 import { ArmazenamentoLocal } from './midias/local.js';
 import { MidiasLocalController } from './midias/midias-local.controller.js';
-import { MidiasController } from './midias/midias.controller.js';
+import { EstadoMidiasController, MidiasController } from './midias/midias.controller.js';
 import { MidiasService } from './midias/midias.service.js';
 import { SaudeController } from './saude/saude.controller.js';
 
@@ -25,7 +25,14 @@ import { SaudeController } from './saude/saude.controller.js';
       useFactory: (a: Armazenamento | null) => (a instanceof ArmazenamentoLocal ? a.opcoesMulter() : {}),
     }),
   ],
-  controllers: [SaudeController, AuthController, LotesController, MidiasController, MidiasLocalController],
+  controllers: [
+    SaudeController,
+    AuthController,
+    LotesController,
+    MidiasController,
+    EstadoMidiasController,
+    MidiasLocalController,
+  ],
   providers: [
     // Lido ao subir: com CODIGO_MODO inválido a API não inicia.
     { provide: MODO_ENVIO, useFactory: () => lerModoEnvio() },
