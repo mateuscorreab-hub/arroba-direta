@@ -3,6 +3,9 @@ import { useColorScheme } from 'react-native';
 
 import { ProvedorSessao } from '@/lib/sessao';
 
+// Aberta por link ou recarregando a página, a tela fica por cima das abas e tem Voltar.
+export const unstable_settings = { anchor: '(abas)' };
+
 export default function RootLayout() {
   const esquema = useColorScheme();
   return (
@@ -15,6 +18,8 @@ export default function RootLayout() {
             name="lote/[id]/midias"
             options={{ title: 'Fotos e vídeo do lote', headerBackTitle: 'Voltar' }}
           />
+          <Stack.Screen name="conversa/[id]/index" options={{ title: 'Conversa', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="conversa/[id]/proposta" options={{ title: 'Proposta', headerBackTitle: 'Voltar' }} />
         </Stack>
       </ThemeProvider>
     </ProvedorSessao>

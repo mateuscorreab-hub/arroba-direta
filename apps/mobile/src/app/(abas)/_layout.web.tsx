@@ -24,6 +24,9 @@ export default function Abas() {
           <TabTrigger name="anunciar" href="/anunciar" asChild>
             <BotaoAba>Anunciar</BotaoAba>
           </TabTrigger>
+          <TabTrigger name="conversas" href="/conversas" asChild>
+            <BotaoAba>Conversas</BotaoAba>
+          </TabTrigger>
           <TabTrigger name="perfil" href="/perfil" asChild>
             <BotaoAba>Perfil</BotaoAba>
           </TabTrigger>
@@ -42,7 +45,7 @@ function BotaoAba({ children, isFocused, ...props }: TabTriggerSlotProps) {
         estilos.botao,
         isFocused && { backgroundColor: tema.backgroundSelected },
       ])}>
-      <Texto tipo="pequeno" cor={isFocused ? 'brand' : 'textSecondary'} style={estilos.rotulo}>
+      <Texto tipo="pequeno" cor={isFocused ? 'brand' : 'textSecondary'} style={estilos.rotulo} numberOfLines={1}>
         {children}
       </Texto>
     </Pressable>
@@ -53,10 +56,20 @@ const estilos = StyleSheet.create({
   barra: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    gap: Spacing.one,
     borderTopWidth: 1,
     paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.one,
   },
-  botao: { paddingVertical: Spacing.two, paddingHorizontal: Spacing.four, borderRadius: 999 },
+  // Quatro abas dividem a largura por igual, para caber em celular estreito.
+  botao: {
+    flex: 1,
+    maxWidth: 160,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+    borderRadius: 999,
+  },
   rotulo: { fontWeight: '600' },
 });

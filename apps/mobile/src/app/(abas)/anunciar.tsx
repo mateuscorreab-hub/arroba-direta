@@ -126,7 +126,13 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
     try {
       const lote = await criarLote(r.data);
       setCampos(vazio);
-      setAviso({ tipo: 'info', texto: 'Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida.' });
+      setAviso({
+        tipo: 'info',
+        texto:
+          lote.status === 'ativo'
+            ? 'Anúncio publicado! Seu lote já aparece na busca.'
+            : 'Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida.',
+      });
       router.push({ pathname: '/lote/[id]/midias', params: { id: lote.id, novo: '1' } });
     } catch (e) {
       // 401: a sessão já foi encerrada pela API; leva a pessoa para entrar de novo.

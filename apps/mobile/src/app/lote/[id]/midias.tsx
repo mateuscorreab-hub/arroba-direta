@@ -253,8 +253,11 @@ function EditorMidias({ lote, novo }: { lote: Lote; novo: boolean }) {
       <View style={estilos.coluna}>
         {novo && (
           <Aviso>
-            Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida. Agora coloque fotos e um vídeo: anúncio
-            com foto chama muito mais compradores.
+            {`${
+              lote.status === 'ativo'
+                ? 'Anúncio publicado! Seu lote já aparece na busca.'
+                : 'Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida.'
+            } Agora coloque fotos e um vídeo: anúncio com foto chama muito mais compradores.`}
           </Aviso>
         )}
         <View style={estilos.bloco}>
