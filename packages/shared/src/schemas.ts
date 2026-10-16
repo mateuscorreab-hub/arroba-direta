@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CATEGORIAS, SEXOS, UFS, UNIDADES_PRECO, VACINAS } from './dominio.js';
+import type { Midia } from './midias.js';
 
 export const sanidadeSchema = z.object({
   vacinas: z.array(z.enum(VACINAS)).default([]),
@@ -59,6 +60,10 @@ export interface Lote extends Omit<LoteCriar, 'disponivelEm'> {
   criadoEm: string;
   distanciaKm?: number;
   vendedor: { id: string; nome: string; verificado: boolean; municipio: string; uf: string };
+  /** Miniatura da primeira foto, ou a do vídeo se o lote não tiver foto. */
+  capa: string | null;
+  /** Só no detalhe (GET /lotes/:id), já em ordem. A lista não traz. */
+  midias?: Midia[];
 }
 
 export interface Pagina<T> {
