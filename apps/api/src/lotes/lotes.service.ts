@@ -4,11 +4,13 @@ import { MIN_FOTOS_PUBLICAR, type Lote, type LoteCriar, type LoteFiltro, type Pa
 import { DB, type Db } from '../db/db.module.js';
 import { lotes, midias, usuarios } from '../db/schema.js';
 import { MidiasService } from '../midias/midias.service.js';
+import { APROVACAO_LOTES, type AprovacaoLotes } from './aprovacao-lotes.js';
 
 @Injectable()
 export class LotesService {
   constructor(
     @Inject(DB) private readonly db: Db,
+    @Inject(APROVACAO_LOTES) private readonly aprovacao: AprovacaoLotes,
     private readonly midias: MidiasService,
   ) {}
 
@@ -57,7 +59,11 @@ export class LotesService {
   async criar(vendedorId: string, dados: LoteCriar, { rascunho = false } = {}): Promise<Lote> {
     const [{ id }] = await this.db
       .insert(lotes)
-      .values({ ...dados, vendedorId, status: rascunho ? 'rascunho' : 'em_analise' })
+      .values({
+        ...dados,
+        vendedorId,
+        status: rascunho ? 'rascunho' : this.statusPublicado(),
+      })
       .returning({ id: lotes.id });
     return this.obter(id);
   }
@@ -73,10 +79,15 @@ export class LotesService {
       // Só se ainda for rascunho: pedido repetido ou status mudado no meio do caminho não volta o lote para análise.
       await this.db
         .update(lotes)
-        .set({ status: 'em_analise' })
+        .set({ status: this.statusPublicado() })
         .where(and(eq(lotes.id, id), eq(lotes.status, 'rascunho')));
     }
     return this.obter(id);
+  }
+
+  /** Com APROVACAO_LOTES=automatica o lote publicado já entra na busca; senão espera a revisão. */
+  private statusPublicado() {
+    return this.aprovacao === 'automatica' ? ('ativo' as const) : ('em_analise' as const);
   }
 
   private consulta(distancia?: SQL<number>) {

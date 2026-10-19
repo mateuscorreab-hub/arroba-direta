@@ -29,6 +29,10 @@ services:
       # Versão de teste: sem SMS, o código de login aparece na tela do app.
       - key: CODIGO_MODO
         value: teste
+      # Versão de teste: o lote anunciado já entra na busca, sem revisão, para dar para testar a negociação.
+      # Trocar para "manual" quando existir o painel de moderação.
+      - key: APROVACAO_LOTES
+        value: automatica
       # Fotos e vídeo dos anúncios na conta do Cloudinary. Os valores não ficam neste arquivo (têm o
       # segredo da conta): preencha no painel do Render (arroba-api > Environment) com o que aparece no
       # painel do Cloudinary, em Settings > API Keys (Cloud name, API Key e API Secret). Sem as três, o

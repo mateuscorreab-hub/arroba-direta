@@ -6,6 +6,7 @@ import { CATEGORIA_ROTULO, type Lote } from '@arroba/shared';
 import { Aviso } from '@/componentes/aviso';
 import { Botao } from '@/componentes/botao';
 import { GaleriaLote, LARGURA_MAXIMA } from '@/componentes/galeria-lote';
+import { NegociarLote } from '@/componentes/negociar-lote';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -108,7 +109,7 @@ export default function LoteDetalhe() {
               </View>
             ))}
           </View>
-          {/* Próximo passo: chat com o vendedor e envio de proposta. */}
+          <NegociarLote lote={lote} />
         </View>
       </View>
     </ScrollView>

@@ -39,6 +39,7 @@ import { useSessao } from '@/lib/sessao';
 const irParaPerfil = () => router.navigate('/perfil');
 const CONFIRA_CAMPOS = 'Confira os campos marcados acima.';
 const ANUNCIO_ENVIADO = 'Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida.';
+const ANUNCIO_PUBLICADO = 'Anúncio publicado! Seu lote já aparece na busca.';
 const TENTAR_ENVIAR = 'Tentar enviar de novo';
 const FOTOS_PARA_REPETIR = `Algumas fotos não subiram, talvez pelo sinal fraco. Toque em "${TENTAR_ENVIAR}" para continuar de onde parou.`;
 const FOTOS_RECUSADAS = 'Algumas fotos não podem ser enviadas. Toque em "Remover" nas que mostram o problema para continuar.';
@@ -289,7 +290,7 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
       setCampos(vazio);
       setErros({});
       setRascunhoId(null);
-      setAviso({ tipo: 'info', texto: ANUNCIO_ENVIADO });
+      setAviso({ tipo: 'info', texto: lote.status === 'ativo' ? ANUNCIO_PUBLICADO : ANUNCIO_ENVIADO });
       router.push({ pathname: '/lote/[id]', params: { id: lote.id } });
     } catch (e) {
       if (e instanceof ErroApi && e.status === 401) {

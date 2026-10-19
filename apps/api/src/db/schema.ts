@@ -1,6 +1,8 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
@@ -10,16 +12,22 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import {
   CATEGORIAS,
+  FRETES,
   SEXOS,
   STATUS_LOTE,
   STATUS_PEDIDO,
+  STATUS_PROPOSTA,
+  TIPOS_MENSAGEM,
   TIPOS_MIDIA,
   UNIDADES_PRECO,
   type Sanidade,
+  type UnidadeProposta,
 } from '@arroba/shared';
 
 export const categoriaEnum = pgEnum('categoria', CATEGORIAS);
@@ -27,13 +35,8 @@ export const sexoEnum = pgEnum('sexo', SEXOS);
 export const unidadePrecoEnum = pgEnum('unidade_preco', UNIDADES_PRECO);
 export const statusLoteEnum = pgEnum('status_lote', STATUS_LOTE);
 export const statusPedidoEnum = pgEnum('status_pedido', STATUS_PEDIDO);
-export const statusPropostaEnum = pgEnum('status_proposta', [
-  'enviada',
-  'contraproposta',
-  'aceita',
-  'recusada',
-  'expirada',
-]);
+export const statusPropostaEnum = pgEnum('status_proposta', STATUS_PROPOSTA);
+export const tipoMensagemEnum = pgEnum('tipo_mensagem', TIPOS_MENSAGEM);
 
 const criadoEm = () => timestamp('criado_em', { withTimezone: true }).notNull().defaultNow();
 
@@ -132,24 +135,85 @@ export const midias = pgTable(
   (t) => [index('midias_lote_ordem_idx').on(t.loteId, t.ordem)],
 );
 
-export const propostas = pgTable('propostas', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  loteId: uuid('lote_id')
-    .notNull()
-    .references(() => lotes.id),
-  compradorId: uuid('comprador_id')
-    .notNull()
-    .references(() => usuarios.id),
-  preco: numeric('preco', { precision: 12, scale: 2, mode: 'number' }).notNull(),
-  unidadePreco: unidadePrecoEnum('unidade_preco').notNull(),
-  quantidade: integer('quantidade').notNull(),
-  quebraPercentual: doublePrecision('quebra_percentual').notNull().default(0),
-  fretePorConta: text('frete_por_conta', { enum: ['comprador', 'vendedor'] }).notNull(),
-  dataEmbarque: timestamp('data_embarque', { withTimezone: true }).notNull(),
-  mensagem: text('mensagem'),
-  status: statusPropostaEnum('status').notNull().default('enviada'),
-  criadoEm: criadoEm(),
-});
+/** Uma conversa por comprador e lote. O vendedor é copiado do lote. */
+export const conversas = pgTable(
+  'conversas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    loteId: uuid('lote_id')
+      .notNull()
+      .references(() => lotes.id),
+    compradorId: uuid('comprador_id')
+      .notNull()
+      .references(() => usuarios.id),
+    vendedorId: uuid('vendedor_id')
+      .notNull()
+      .references(() => usuarios.id),
+    lidoCompradorEm: timestamp('lido_comprador_em', { withTimezone: true }),
+    lidoVendedorEm: timestamp('lido_vendedor_em', { withTimezone: true }),
+    atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    unique('conversas_lote_comprador_unique').on(t.loteId, t.compradorId),
+    index('conversas_comprador_idx').on(t.compradorId, t.atualizadoEm),
+    index('conversas_vendedor_idx').on(t.vendedorId, t.atualizadoEm),
+  ],
+);
+
+export const propostas = pgTable(
+  'propostas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    loteId: uuid('lote_id')
+      .notNull()
+      .references(() => lotes.id),
+    conversaId: uuid('conversa_id')
+      .notNull()
+      .references(() => conversas.id),
+    compradorId: uuid('comprador_id')
+      .notNull()
+      .references(() => usuarios.id),
+    // Quem fez a proposta: o comprador ou o vendedor.
+    autorId: uuid('autor_id')
+      .notNull()
+      .references(() => usuarios.id),
+    preco: numeric('preco', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+    unidadePreco: unidadePrecoEnum('unidade_preco').$type<UnidadeProposta>().notNull(),
+    quantidade: integer('quantidade').notNull(),
+    quebraPercentual: doublePrecision('quebra_percentual').notNull().default(0),
+    fretePorConta: text('frete_por_conta', { enum: FRETES }).notNull(),
+    dataEmbarque: date('data_embarque', { mode: 'string' }).notNull(),
+    mensagem: text('mensagem'),
+    status: statusPropostaEnum('status').notNull().default('enviada'),
+    expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+    respondidaEm: timestamp('respondida_em', { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    // No máximo uma proposta aberta por conversa: a anterior muda de status antes de entrar a nova.
+    uniqueIndex('propostas_aberta_por_conversa_idx')
+      .on(t.conversaId)
+      .where(sql`${t.status} = 'enviada'`),
+    index('propostas_lote_status_idx').on(t.loteId, t.status),
+  ],
+);
+
+export const mensagens = pgTable(
+  'mensagens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversaId: uuid('conversa_id')
+      .notNull()
+      .references(() => conversas.id, { onDelete: 'cascade' }),
+    autorId: uuid('autor_id').references(() => usuarios.id), // null = mensagem do sistema
+    tipo: tipoMensagemEnum('tipo').notNull(),
+    texto: text('texto'), // null em mensagem de proposta
+    propostaId: uuid('proposta_id').references(() => propostas.id),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index('mensagens_conversa_idx').on(t.conversaId, t.criadoEm)],
+);
 
 export const pedidos = pgTable('pedidos', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -17,6 +17,10 @@ export default function Abas() {
         <NativeTabs.Trigger.Label>Anunciar</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="plus.circle" md="add_circle" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="conversas">
+        <NativeTabs.Trigger.Label>Conversas</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="bubble.left.and.bubble.right" md="chat" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="perfil">
         <NativeTabs.Trigger.Label>Perfil</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="person.crop.circle" md="account_circle" />

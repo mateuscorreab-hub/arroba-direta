@@ -73,17 +73,5 @@ export interface Pagina<T> {
   porPagina: number;
 }
 
-export const propostaSchema = z.object({
-  loteId: z.string().uuid(),
-  preco: z.number().positive(),
-  unidadePreco: z.enum(['cabeca', 'kg', 'arroba']),
-  quantidade: z.number().int().positive(),
-  quebraPercentual: z.number().min(0).max(10).default(0),
-  fretePorConta: z.enum(['comprador', 'vendedor']),
-  dataEmbarque: z.coerce.date(),
-  mensagem: z.string().max(1000).optional(),
-});
-export type Proposta = z.infer<typeof propostaSchema>;
-
 // Mensagens de validação em português em todo o sistema.
 z.config(z.locales.pt());

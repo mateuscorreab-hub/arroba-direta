@@ -31,6 +31,7 @@ async function subir(env: Record<string, string>): Promise<INestApplication> {
 describe('Rascunho e publicar o anúncio (e2e)', () => {
   let app: INestApplication;
   let desligado: INestApplication;
+  let automatica: INestApplication;
   let db: Db;
   let pasta: string;
   const apoio = new ApoioE2e(() => app);
@@ -44,6 +45,7 @@ describe('Rascunho e publicar o anúncio (e2e)', () => {
       MIDIA_SEGREDO_LOCAL: 'segredo-dos-testes-de-publicar-0123456789',
     });
     desligado = await subir({ MIDIA_ARMAZENAMENTO: 'desligado' });
+    automatica = await subir({ MIDIA_ARMAZENAMENTO: 'desligado', APROVACAO_LOTES: 'automatica' });
     db = app.get(DB);
   });
 
@@ -51,6 +53,7 @@ describe('Rascunho e publicar o anúncio (e2e)', () => {
     await apoio.limpar(db);
     await app.close();
     await desligado.close();
+    await automatica.close();
     await rm(pasta, { recursive: true, force: true });
   });
 
@@ -192,6 +195,16 @@ describe('Rascunho e publicar o anúncio (e2e)', () => {
     const lote = await rascunho(auth);
     const res = await publicar(auth, lote.id, desligado).expect(200);
     expect(res.body).toMatchObject({ id: lote.id, status: 'em_analise', capa: null, midias: [] });
+  });
+
+  it('com APROVACAO_LOTES=automatica, o rascunho publicado já entra na busca', async () => {
+    const auth = await apoio.vendedor();
+    const raca = `Nelore Automatica ${Date.now()}`;
+    const lote = await rascunho(auth, { raca });
+    const res = await publicar(auth, lote.id, automatica).expect(200);
+    expect(res.body).toMatchObject({ id: lote.id, status: 'ativo' });
+    const busca = await request(automatica.getHttpServer()).get('/lotes').query({ raca }).expect(200);
+    expect(busca.body.itens.map((l: Lote) => l.id)).toEqual([lote.id]);
   });
 
   it('GET /midias/estado diz, sem login, se o envio está ligado', async () => {
