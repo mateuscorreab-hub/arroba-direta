@@ -30,7 +30,8 @@ const TENTAR_ENVIAR = 'Tentar enviar de novo';
 const FOTOS_PARA_REPETIR = `Algumas fotos não subiram, talvez pelo sinal fraco. Toque em "${TENTAR_ENVIAR}" para continuar de onde parou.`;
 const FOTOS_RECUSADAS = 'Algumas fotos não podem ser enviadas. Toque em "Remover" nas que mostram o problema para continuar.';
 const FALTA_PUBLICAR = 'As fotos subiram. Toque em "Publicar anúncio" para terminar.';
-const DADOS_SALVOS = 'Os dados do lote já foram salvos e não podem mais ser mudados aqui. Falta só terminar de publicar, lá embaixo.';
+const DADOS_SALVOS =
+  'Os dados do lote já foram salvos. Falta só terminar de publicar, lá embaixo; depois dá para mudar o anúncio em "Meus anúncios", no Perfil.';
 const MINIMO_FOTOS = MIN_FOTOS_PUBLICAR > 1 ? `${MIN_FOTOS_PUBLICAR} fotos` : 'uma foto';
 const FALTA_FOTO = `Coloque pelo menos ${MINIMO_FOTOS} do lote.`;
 const COMO_COLOCAR =
@@ -243,7 +244,7 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
       await acertarOrdem(id, itens);
       const lote = await publicarLote(id);
       fila.limpar();
-      form.limpar(vazio);
+      form.limparTextos();
       setRascunhoId(null);
       setAviso({ tipo: 'info', texto: lote.status === 'ativo' ? ANUNCIO_PUBLICADO : ANUNCIO_ENVIADO });
       router.push({ pathname: '/lote/[id]', params: { id: lote.id } });

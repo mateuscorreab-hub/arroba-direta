@@ -16,6 +16,7 @@ function situacao(c: ConversaResumo, meuId: string): { texto: string; cor: Theme
   }
   if (c.lote.status === 'vendido') return { texto: 'Lote vendido', cor: 'textSecondary' };
   if (c.lote.status === 'encerrado') return { texto: 'Anúncio pausado', cor: 'textSecondary' };
+  if (c.lote.status === 'em_analise') return { texto: 'Anúncio em revisão', cor: 'textSecondary' };
   if (c.lote.status !== 'ativo') return { texto: 'Lote indisponível', cor: 'textSecondary' };
   return null;
 }

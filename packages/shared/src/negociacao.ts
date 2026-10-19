@@ -161,7 +161,7 @@ export interface PropostaNegociacao {
 export interface Mensagem {
   id: string;
   conversaId: string;
-  /** null em mensagem do sistema. */
+  /** Em aviso do sistema, null ou quem causou o aviso (o vendedor que pausou o lote, por exemplo). */
   autorId: string | null;
   tipo: TipoMensagem;
   /** null em mensagem de proposta. */

@@ -68,6 +68,12 @@ export const STATUS_LOTE_ROTULO: Record<StatusLote, string> = {
   encerrado: 'Pausado',
 };
 
+/** Lote que não pode mais ter os dados, as fotos ou o vídeo alterados, e o motivo. */
+export const LOTE_NAO_ALTERA: Partial<Record<StatusLote, string>> = {
+  negociando: 'Este lote tem negócio fechado pelo app e não pode mais ser alterado.',
+  vendido: 'Este lote já foi vendido e não pode mais ser alterado.',
+};
+
 export const STATUS_PEDIDO = [
   'aguardando_pagamento',
   'pago',

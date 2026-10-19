@@ -111,7 +111,7 @@ function Proposta({ id, de, usuario }: { id: string; de: string | undefined; usu
         <Aviso>
           {conversa.negocioFechado
             ? 'O negócio desta conversa já foi fechado.'
-            : motivoIndisponivel(conversa.lote.status)}
+            : motivoIndisponivel(conversa.lote.status, conversa.papel)}
         </Aviso>
         <Botao titulo="Voltar para a conversa" onPress={() => voltarParaConversa(id)} />
       </>

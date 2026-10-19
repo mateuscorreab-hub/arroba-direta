@@ -205,7 +205,7 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
             )
           ) : (
             !tecladoAberto &&
-            lote.status !== 'ativo' && <Aviso>{motivoIndisponivel(lote.status)}</Aviso>
+            lote.status !== 'ativo' && <Aviso>{motivoIndisponivel(lote.status, conversa.papel)}</Aviso>
           )}
         </View>
 

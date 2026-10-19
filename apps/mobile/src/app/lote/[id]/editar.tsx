@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
-import type { Lote } from '@arroba/shared';
+import { LOTE_NAO_ALTERA, type Lote } from '@arroba/shared';
 
 import { Aviso } from '@/componentes/aviso';
 import { Botao } from '@/componentes/botao';
@@ -9,20 +9,18 @@ import { CamposLote, baseDoLote, useCamposLote, valoresDoLote } from '@/componen
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ErroApi, editarLote, obterLote, textoDoErro } from '@/lib/api';
+import { ErroApi, editarLote, obterLote, obterRegrasAnuncio, textoDoErro } from '@/lib/api';
 import { useSessao } from '@/lib/sessao';
 
 const CONFIRA_CAMPOS = 'Confira os campos marcados acima.';
-const NAO_ALTERA: Partial<Record<Lote['status'], string>> = {
-  negociando: 'Este lote tem negócio fechado pelo app e não pode mais ser alterado.',
-  vendido: 'Este lote já foi vendido e não pode mais ser alterado.',
-};
+const MUDAR_GADO = 'Se você mudar a categoria, a raça, a quantidade, o peso ou o local';
 
-/** Volta para a tela do lote, que recarrega ao aparecer. Aberta por link, não há para onde voltar. */
+/** Volta para a tela do lote, que recarrega ao aparecer; aberta por link, troca esta tela pela do lote. */
 function voltarParaOLote(id: string) {
-  if (router.canGoBack()) router.back();
-  else router.replace({ pathname: '/lote/[id]', params: { id } });
+  router.dismissTo({ pathname: '/lote/[id]', params: { id } });
 }
+
+const irParaPerfil = () => router.dismissTo('/perfil');
 
 export default function EditarLote() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,28 +47,41 @@ export default function EditarLote() {
   useEffect(carregar, [carregar]);
 
   let conteudo;
-  if (!lote || sessao.carregando) {
-    conteudo = erro ? (
+  if (sessao.carregando || (!lote && !erro)) {
+    conteudo = <ActivityIndicator size="large" color={tema.brand} style={estilos.carregando} />;
+  } else if (sessao.erro) {
+    conteudo = (
+      <>
+        <Aviso tipo="erro">{`Não foi possível carregar seu perfil. ${sessao.erro}`}</Aviso>
+        <Botao titulo="Tentar de novo" onPress={sessao.tentarDeNovo} />
+      </>
+    );
+  } else if (!lote) {
+    conteudo = (
       <>
         <Aviso tipo="erro">{erro}</Aviso>
         <Botao
           titulo="Tentar de novo"
-          variante="secundario"
           onPress={() => {
             setErro(null);
             carregar();
           }}
         />
       </>
-    ) : (
-      <ActivityIndicator size="large" color={tema.brand} style={estilos.carregando} />
     );
-  } else if (sessao.usuario?.id !== lote.vendedor.id) {
-    conteudo = <Aviso>Só o vendedor pode alterar este anúncio.</Aviso>;
-  } else if (NAO_ALTERA[lote.status]) {
+  } else if (!sessao.usuario) {
     conteudo = (
       <>
-        <Aviso>{NAO_ALTERA[lote.status]}</Aviso>
+        <Texto cor="textSecondary">Para editar o anúncio, entre com o celular de quem anunciou o lote.</Texto>
+        <Botao titulo="Entrar com celular" onPress={irParaPerfil} />
+      </>
+    );
+  } else if (sessao.usuario.id !== lote.vendedor.id) {
+    conteudo = <Aviso>Só o vendedor pode alterar este anúncio.</Aviso>;
+  } else if (LOTE_NAO_ALTERA[lote.status]) {
+    conteudo = (
+      <>
+        <Aviso>{LOTE_NAO_ALTERA[lote.status]}</Aviso>
         <Botao titulo="Voltar ao anúncio" variante="secundario" onPress={() => voltarParaOLote(lote.id)} />
       </>
     );
@@ -93,6 +104,21 @@ function FormularioEdicao({ lote }: { lote: Lote }) {
   const form = useCamposLote(valoresDoLote(lote));
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  // Com revisão manual, salvar o lote no ar tira ele da busca. Sem a resposta, avisa só o que vale sempre.
+  const [revisaoManual, setRevisaoManual] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+    obterRegrasAnuncio().then(
+      (r) => {
+        if (ativo) setRevisaoManual(r.revisaoManual);
+      },
+      () => {},
+    );
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   async function salvar() {
     if (salvando) return;
@@ -107,6 +133,11 @@ function FormularioEdicao({ lote }: { lote: Lote }) {
       await editarLote(lote.id, dados);
       voltarParaOLote(lote.id);
     } catch (e) {
+      // 401: a sessão já foi encerrada pela API; leva a pessoa para entrar de novo.
+      if (e instanceof ErroApi && e.status === 401) {
+        irParaPerfil();
+        return;
+      }
       const porCampo = e instanceof ErroApi ? e.erros : {};
       form.setErros(porCampo);
       setAviso(Object.keys(porCampo).length > 0 ? CONFIRA_CAMPOS : textoDoErro(e));
@@ -115,15 +146,20 @@ function FormularioEdicao({ lote }: { lote: Lote }) {
     }
   }
 
+  let avisoAntes: string | null = null;
+  if (lote.status === 'ativo') {
+    avisoAntes = revisaoManual
+      ? 'Ao salvar uma mudança, o anúncio sai da busca e passa por uma nova revisão. Quem já conversa com você ' +
+        'sobre este lote recebe um aviso, e a proposta em aberto deixa de valer.'
+      : `${MUDAR_GADO}, quem já conversa com você sobre este lote recebe um aviso, e a proposta em aberto deixa de valer.`;
+  } else if (lote.status === 'encerrado') {
+    avisoAntes = `${MUDAR_GADO}, quem já conversa com você sobre este lote recebe um aviso.`;
+  }
+
   return (
     <>
       <Texto tipo="titulo">Editar anúncio</Texto>
-      {(lote.status === 'ativo' || lote.status === 'encerrado') && (
-        <Aviso>
-          Se você mudar a categoria, a raça, a quantidade, o peso ou o local, quem já conversa com você sobre este
-          lote recebe um aviso, e a proposta em aberto deixa de valer.
-        </Aviso>
-      )}
+      {avisoAntes && <Aviso>{avisoAntes}</Aviso>}
       <CamposLote form={form} travado={salvando} />
       <Texto tipo="pequeno" cor="textSecondary">
         As fotos e o vídeo você muda em &quot;Fotos e vídeo do lote&quot;, na tela do anúncio.

@@ -5,6 +5,8 @@ import * as schema from './schema.js';
 
 export const DB = Symbol('DB');
 export type Db = NodePgDatabase<typeof schema>;
+/** O `tx` de db.transaction(async (tx) => ...). */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const POOL = Symbol('POOL');
 

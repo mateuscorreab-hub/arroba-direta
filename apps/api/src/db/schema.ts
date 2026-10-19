@@ -182,6 +182,8 @@ export const propostas = pgTable(
     unidadePreco: unidadePrecoEnum('unidade_preco').$type<UnidadeProposta>().notNull(),
     quantidade: integer('quantidade').notNull(),
     quebraPercentual: doublePrecision('quebra_percentual').notNull().default(0),
+    // Peso médio do lote quando a proposta foi feita: o valor estimado não muda se o vendedor editar o lote.
+    pesoMedioKg: doublePrecision('peso_medio_kg'),
     fretePorConta: text('frete_por_conta', { enum: FRETES }).notNull(),
     dataEmbarque: date('data_embarque', { mode: 'string' }).notNull(),
     mensagem: text('mensagem'),
@@ -206,7 +208,8 @@ export const mensagens = pgTable(
     conversaId: uuid('conversa_id')
       .notNull()
       .references(() => conversas.id, { onDelete: 'cascade' }),
-    autorId: uuid('autor_id').references(() => usuarios.id), // null = mensagem do sistema
+    // Em aviso do sistema: null, ou quem causou o aviso (o vendedor que pausou o lote não o vê como novo).
+    autorId: uuid('autor_id').references(() => usuarios.id),
     tipo: tipoMensagemEnum('tipo').notNull(),
     texto: text('texto'), // null em mensagem de proposta
     propostaId: uuid('proposta_id').references(() => propostas.id),

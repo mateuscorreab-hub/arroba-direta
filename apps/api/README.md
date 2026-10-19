@@ -24,9 +24,15 @@ Anúncio com fotos antes de publicar: o app cria o lote com `POST /lotes?rascunh
 
 Meus anúncios (`src/lotes/`): `GET /eu/lotes` traz os lotes de quem fez login, em qualquer situação, do mais novo para o mais antigo. As outras rotas são só do vendedor do lote (`VendedorDoLoteGuard`):
 
-- `PUT /lotes/:id` troca os dados. O corpo é o anúncio inteiro, validado como no `POST /lotes`; o campo opcional que não vier fica em branco. Recusa (409) lote `negociando` ou `vendido`. Com `APROVACAO_LOTES=manual`, o lote `ativo` volta para `em_analise`.
+- `PUT /lotes/:id` troca os dados. O corpo é o anúncio inteiro, validado como no `POST /lotes`; o campo opcional que não vier fica em branco. Recusa (409) lote `negociando` ou `vendido`. Salvar sem mudar nada não altera o lote. Com `APROVACAO_LOTES=manual`, o lote `ativo` que muda volta para `em_analise`.
 - `POST /lotes/:id/pausar`: de `ativo` ou `em_analise` para `encerrado` (o app chama de "Pausado").
 - `POST /lotes/:id/reativar`: de `encerrado` volta a `ativo` (ou `em_analise` com revisão manual), exigindo foto como o publicar.
 - `POST /lotes/:id/vendido`: de `ativo`, `em_analise`, `encerrado` ou `negociando` para `vendido`, que é o fim.
 
-As três últimas devolvem o lote como está quando ele já está no destino (o app repete o pedido quando perde a conexão) e respondem 409 com o motivo nos outros casos (rascunho, negócio fechado, vendido). Todas travam o lote como o aceite de proposta. Quando o lote pausa, volta ao ar, é vendido ou tem o gado alterado (categoria, raça, sexo, quantidade, peso, idade ou local), a proposta em aberto expira e todas as conversas do lote recebem uma mensagem do sistema (`avisarMudancaNoLote`, em `src/negociacao/negociacao.service.ts`). Título, descrição e preço pedido não mexem nas propostas.
+As três últimas devolvem o lote como está quando ele já está no destino (o app repete o pedido quando perde a conexão) e respondem 409 com o motivo nos outros casos (rascunho, negócio fechado, vendido). Todas travam o lote como o aceite de proposta. Quando o lote pausa, volta ao ar, é vendido ou tem o gado alterado (categoria, raça, sexo, quantidade, peso, idade ou local), a proposta em aberto expira e todas as conversas do lote recebem uma mensagem do sistema (`avisarMudancaNoLote`, em `src/negociacao/negociacao.service.ts`). O aviso leva o vendedor como `autorId`, para não contar como não lida para ele. Título, descrição e preço pedido não mexem nas propostas, a não ser com revisão manual, em que qualquer mudança no lote `ativo` tira ele da busca e expira a proposta.
+
+Cada proposta guarda o peso médio do lote no momento em que foi feita (`propostas.peso_medio_kg`, migração `0005`), e o valor estimado usa esse peso, mesmo que o vendedor mude o peso do lote depois.
+
+Lote `negociando` ou `vendido` também não aceita mudança nas fotos e no vídeo (409 nas rotas de mídia; o arquivo recusado é apagado do armazenamento).
+
+`GET /lotes/regras` (sem login) diz se há revisão manual (`{ revisaoManual }`), para o app avisar antes de salvar.

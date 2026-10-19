@@ -8,7 +8,7 @@ import { Botao } from '@/componentes/botao';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { marcarLoteVendido, pausarLote, publicarLote, reativarLote, textoDoErro } from '@/lib/api';
+import { ErroApi, marcarLoteVendido, obterLote, pausarLote, publicarLote, reativarLote, textoDoErro } from '@/lib/api';
 
 // O lote fora da busca precisa dizer por quê, senão o vendedor acha que deu errado e anuncia de novo.
 const SITUACAO: Record<StatusLote, string> = {
@@ -23,8 +23,6 @@ const SITUACAO: Record<StatusLote, string> = {
 const EDITAVEL: readonly StatusLote[] = ['rascunho', 'em_analise', 'ativo', 'encerrado'];
 const PAUSAVEL: readonly StatusLote[] = ['em_analise', 'ativo'];
 const VENDIVEL: readonly StatusLote[] = ['em_analise', 'ativo', 'encerrado', 'negociando'];
-// Rascunho e lote em análise ainda não tiveram comprador.
-const COM_CONVERSAS: readonly StatusLote[] = ['ativo', 'encerrado', 'negociando', 'vendido'];
 
 type Acao = 'publicar' | 'pausar' | 'reativar' | 'vender';
 const CHAMADA: Record<Acao, (id: string) => Promise<Lote>> = {
@@ -44,6 +42,18 @@ export function PainelDoVendedor({ lote, aoMudar }: { lote: Lote; aoMudar: (lote
   const [ocupado, setOcupado] = useState<Acao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const s = lote.status;
+  // O lote mudou de situação (aqui ou por outro caminho): a confirmação e o erro de antes não valem mais.
+  const [statusVisto, setStatusVisto] = useState(s);
+  if (s !== statusVisto) {
+    setStatusVisto(s);
+    setConfirmando(null);
+    setErro(null);
+  }
+
+  function abrir(tela: '/lote/[id]/editar' | '/lote/[id]/midias') {
+    setErro(null);
+    router.push({ pathname: tela, params: { id: lote.id } });
+  }
 
   async function fazer(acao: Acao) {
     if (ocupado) return;
@@ -54,6 +64,11 @@ export function PainelDoVendedor({ lote, aoMudar }: { lote: Lote; aoMudar: (lote
       setConfirmando(null);
     } catch (e) {
       setErro(textoDoErro(e));
+      // 409: o lote mudou por outro caminho (um comprador fechou negócio, por exemplo); mostra como ele está.
+      if (e instanceof ErroApi && e.status === 409) {
+        setConfirmando(null);
+        obterLote(lote.id).then(aoMudar, () => {});
+      }
     } finally {
       setOcupado(null);
     }
@@ -93,13 +108,13 @@ export function PainelDoVendedor({ lote, aoMudar }: { lote: Lote; aoMudar: (lote
             <Botao
               titulo="Editar anúncio"
               variante="secundario"
-              onPress={() => router.push({ pathname: '/lote/[id]/editar', params: { id: lote.id } })}
+              onPress={() => abrir('/lote/[id]/editar')}
               desabilitado={!!ocupado}
             />
             <Botao
               titulo="Fotos e vídeo do lote"
               variante="secundario"
-              onPress={() => router.push({ pathname: '/lote/[id]/midias', params: { id: lote.id } })}
+              onPress={() => abrir('/lote/[id]/midias')}
               desabilitado={!!ocupado}
             />
           </>
@@ -120,7 +135,7 @@ export function PainelDoVendedor({ lote, aoMudar }: { lote: Lote; aoMudar: (lote
             desabilitado={!!ocupado}
           />
         )}
-        {COM_CONVERSAS.includes(s) && (
+        {s !== 'rascunho' && (
           // dismissTo volta às abas que já estão na pilha, em vez de empilhar outra cópia delas.
           <Botao titulo="Ver conversas" variante="discreto" onPress={() => router.dismissTo('/conversas')} />
         )}

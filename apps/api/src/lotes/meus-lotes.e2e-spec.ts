@@ -4,12 +4,14 @@ import path from 'node:path';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
+import pg from 'pg';
 import request from 'supertest';
 import { hojeEmBrasilia, type ConversaDetalhe, type Lote } from '@arroba/shared';
 import { AppModule } from '../app.module.js';
 import { DB, type Db } from '../db/db.module.js';
 import { lotes } from '../db/schema.js';
-import { ApoioE2e, adicionarLocal } from '../midias/apoio-e2e.teste.js';
+import { ApoioE2e, adicionarLocal, enviarLocal, esperarBloqueados } from '../midias/apoio-e2e.teste.js';
+import { png } from '../midias/arquivos-falsos.teste.js';
 
 async function subir(env: Record<string, string>): Promise<INestApplication> {
   for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
@@ -49,6 +51,10 @@ const NEGOCIO_FECHADO = 'Este lote tem negócio fechado pelo app. Quando o gado 
 const JA_VENDIDO = 'Este lote já foi vendido.';
 const NAO_PUBLICADO = 'Este anúncio ainda não foi publicado.';
 const ALTERADO = 'O vendedor alterou os dados do lote. Confira o anúncio antes de fazer uma proposta.';
+const ALTERADO_EM_REVISAO =
+  'O vendedor alterou o anúncio, que passa por uma revisão antes de voltar à busca. Por enquanto não dá para fazer propostas.';
+const ALTERADO_PAUSADO = 'O vendedor alterou os dados do lote. O anúncio continua pausado.';
+const DE_VOLTA_EM_REVISAO = 'O anúncio voltou e passa por uma revisão antes de aceitar propostas de novo.';
 const PAUSADO = 'O vendedor pausou o anúncio. Por enquanto não dá para fazer propostas por este lote.';
 const DE_VOLTA = 'O anúncio voltou ao ar. Vocês já podem negociar de novo.';
 const VENDIDO = 'O vendedor marcou este lote como vendido.';
@@ -113,6 +119,16 @@ describe('Meus anúncios: editar, pausar, reativar e vender (e2e)', () => {
     return (await api().get(`/conversas/${conversaId}`).set('Authorization', auth).expect(200)).body;
   }
   const avisos = (c: ConversaDetalhe) => c.mensagens.filter((m) => m.tipo === 'sistema').map((m) => m.texto);
+  async function naoLidas(auth: string, conversaId: string): Promise<number> {
+    const lista = (await api().get('/conversas').set('Authorization', auth).expect(200)).body;
+    return lista.itens.find((c: { id: string }) => c.id === conversaId).naoLidas;
+  }
+  const propostaNa = (c: ConversaDetalhe, id: string) => c.mensagens.find((m) => m.proposta?.id === id)?.proposta;
+
+  it('GET /lotes/regras diz se a edição volta para a revisão', async () => {
+    expect((await api().get('/lotes/regras').expect(200)).body).toEqual({ revisaoManual: false });
+    expect((await api(manual).get('/lotes/regras').expect(200)).body).toEqual({ revisaoManual: true });
+  });
 
   it('GET /eu/lotes traz só os lotes de quem fez login, em qualquer situação, do mais novo ao mais antigo', async () => {
     const vendedor = await apoio.vendedor();
@@ -216,7 +232,7 @@ describe('Meus anúncios: editar, pausar, reativar e vender (e2e)', () => {
     await editar(vendedor, id, corpo({ quantidade: 18 })).expect(200);
     c = await ver(comprador, conversa);
     expect(c.propostaAberta).toBeNull();
-    expect(c.mensagens.find((m) => m.proposta?.id === proposta)?.proposta?.status).toBe('expirada');
+    expect(propostaNa(c, proposta)?.status).toBe('expirada');
     expect(avisos(c)).toEqual([ALTERADO]);
     // A proposta vencida não pode mais ser aceita; uma nova segue a quantidade nova.
     await api().post(`/propostas/${proposta}/aceitar`).set('Authorization', vendedor).expect(409);
@@ -350,8 +366,176 @@ describe('Meus anúncios: editar, pausar, reativar e vender (e2e)', () => {
     await acao(vendedor, id, 'vendido').expect(200);
     const c = await ver(comprador, conversa);
     expect(c.propostaAberta).toBeNull();
-    expect(c.mensagens.find((m) => m.proposta?.id === proposta)?.proposta?.status).toBe('expirada');
+    expect(propostaNa(c, proposta)?.status).toBe('expirada');
     expect(avisos(c)).toEqual([VENDIDO]);
     await api().post(`/propostas/${proposta}/aceitar`).set('Authorization', vendedor).expect(409);
   });
+  it('o aviso da mudança no lote não aparece como novo para o vendedor que mudou', async () => {
+    const vendedor = await apoio.vendedor();
+    const comprador = await apoio.vendedor();
+    const id = await apoio.lote(vendedor);
+    const conversa = await conversaCom(comprador, id);
+    await propor(comprador, conversa).expect(201);
+    await ver(vendedor, conversa);
+    await ver(comprador, conversa);
+
+    await acao(vendedor, id, 'pausar').expect(200);
+    expect(await naoLidas(vendedor, conversa)).toBe(0);
+    expect(await naoLidas(comprador, conversa)).toBe(1);
+    const vendedorId = (await api().get('/eu').set('Authorization', vendedor).expect(200)).body.id;
+    expect((await ver(comprador, conversa)).mensagens.at(-1)).toMatchObject({
+      tipo: 'sistema',
+      autorId: vendedorId,
+      texto: PAUSADO,
+    });
+  });
+
+  it('o aviso da edição diz em que situação o lote ficou', async () => {
+    const vendedor = await apoio.vendedor();
+    const comprador = await apoio.vendedor();
+    const id = await apoio.lote(vendedor);
+    const conversa = await conversaCom(comprador, id);
+    const proposta = (await propor(comprador, conversa).expect(201)).body.id;
+
+    // Revisão manual: mudar só o título já tira o lote da busca e encerra a proposta.
+    expect((await editar(vendedor, id, corpo({ titulo: 'Garrotes de recria' }), manual).expect(200)).body.status).toBe(
+      'em_analise',
+    );
+    let c = await ver(comprador, conversa);
+    expect(avisos(c)).toEqual([ALTERADO_EM_REVISAO]);
+    expect(propostaNa(c, proposta)?.status).toBe('expirada');
+
+    await db.update(lotes).set({ status: 'encerrado' }).where(eq(lotes.id, id));
+    await editar(vendedor, id, corpo({ titulo: 'Garrotes de recria', quantidade: 20 })).expect(200);
+    c = await ver(comprador, conversa);
+    expect(avisos(c)).toEqual([ALTERADO_EM_REVISAO, ALTERADO_PAUSADO]);
+  });
+
+  it('salvar sem mudar nada não tira o lote da busca nem encerra a proposta, mesmo com revisão manual', async () => {
+    const vendedor = await apoio.vendedor();
+    const comprador = await apoio.vendedor();
+    const id = await apoio.lote(vendedor, { sanidade: { vacinas: ['brucelose', 'raiva'], vermifugado: true } });
+    const conversa = await conversaCom(comprador, id);
+    const proposta = (await propor(comprador, conversa).expect(201)).body.id;
+
+    const igual = corpo({ sanidade: { vacinas: ['brucelose', 'raiva'], vermifugado: true } });
+    expect((await editar(vendedor, id, igual, manual).expect(200)).body.status).toBe('ativo');
+    const c = await ver(comprador, conversa);
+    expect(c.propostaAberta?.id).toBe(proposta);
+    expect(avisos(c)).toEqual([]);
+  });
+
+  it('com revisão manual, reativar avisa que o lote volta pela revisão', async () => {
+    const vendedor = await apoio.vendedor();
+    const comprador = await apoio.vendedor();
+    const id = await apoio.lote(vendedor);
+    const conversa = await conversaCom(comprador, id);
+    await acao(vendedor, id, 'pausar').expect(200);
+    expect((await acao(vendedor, id, 'reativar', manual).expect(200)).body.status).toBe('em_analise');
+    expect(avisos(await ver(comprador, conversa))).toEqual([PAUSADO, DE_VOLTA_EM_REVISAO]);
+  });
+
+  it('a proposta guarda o peso do lote: editar o peso não muda o valor das propostas antigas', async () => {
+    const vendedor = await apoio.vendedor();
+    const comprador = await apoio.vendedor();
+    const id = await apoio.lote(vendedor, { unidadePreco: 'arroba', preco: 320, pesoMedioKg: 330 });
+    const conversa = await conversaCom(comprador, id);
+    // 20 cabeças × 330 kg ÷ 15 = 440 arrobas × R$ 300.
+    const proposta = (await propor(comprador, conversa, { unidadePreco: 'arroba', preco: 300 }).expect(201)).body;
+    expect(proposta.valorEstimado).toBe(132000);
+
+    await editar(vendedor, id, corpo({ unidadePreco: 'arroba', preco: 320, pesoMedioKg: 400 })).expect(200);
+    expect(propostaNa(await ver(comprador, conversa), proposta.id)).toMatchObject({
+      status: 'expirada',
+      valorEstimado: 132000,
+    });
+    await editar(vendedor, id, corpo()).expect(200);
+    expect(propostaNa(await ver(comprador, conversa), proposta.id)?.valorEstimado).toBe(132000);
+  });
+
+  it('fotos e vídeo de lote com negócio fechado ou vendido não mudam mais', async () => {
+    const vendedor = await apoio.vendedor();
+    const id = await apoio.lote(vendedor);
+    const { midia } = await adicionarLocal(app, vendedor, id);
+    const arquivo = png(50, 40);
+    const pedirEnvio = () =>
+      api()
+        .post(`/lotes/${id}/midias/envio`)
+        .set('Authorization', vendedor)
+        .send({ tipo: 'foto', mime: 'image/png', tamanho: arquivo.length });
+
+    for (const [status, mensagem] of [
+      ['negociando', 'Este lote tem negócio fechado pelo app e não pode mais ser alterado.'],
+      ['vendido', 'Este lote já foi vendido e não pode mais ser alterado.'],
+    ] as const) {
+      // Autorização pedida e arquivo enviado com o lote ainda no ar; a situação muda antes do registro.
+      await db.update(lotes).set({ status: 'ativo' }).where(eq(lotes.id, id));
+      const ticket = await pedirEnvio().expect(201);
+      const enviado = (await enviarLocal(app, ticket.body, arquivo, 'foto.png', 'image/png').expect(200)).body;
+      await db.update(lotes).set({ status }).where(eq(lotes.id, id));
+
+      const envio = await pedirEnvio().expect(409);
+      expect(envio.body).toEqual({ mensagem });
+      const registrar = () =>
+        api()
+          .post(`/lotes/${id}/midias`)
+          .set('Authorization', vendedor)
+          .send({ tipo: 'foto', publicId: enviado.public_id, versao: enviado.version, assinatura: enviado.signature });
+      expect((await registrar().expect(409)).body).toEqual({ mensagem });
+      // O arquivo recusado sai do armazenamento.
+      expect((await registrar().expect(400)).body).toEqual({ mensagem: 'O arquivo não chegou. Tente de novo.' });
+      const ordem = await api()
+        .patch(`/lotes/${id}/midias/ordem`)
+        .set('Authorization', vendedor)
+        .send({ ids: [midia.id] })
+        .expect(409);
+      expect(ordem.body).toEqual({ mensagem });
+      const apagar = await api().delete(`/lotes/${id}/midias/${midia.id}`).set('Authorization', vendedor).expect(409);
+      expect(apagar.body).toEqual({ mensagem });
+    }
+    expect((await api().get(`/lotes/${id}`).expect(200)).body.midias.map((m: { id: string }) => m.id)).toEqual([
+      midia.id,
+    ]);
+  });
+
+  for (const mudanca of ['editar', 'pausar'] as const) {
+    it(`${mudanca} e aceitar proposta ao mesmo tempo: um espera o outro e só um vale`, async () => {
+      const vendedor = await apoio.vendedor();
+      const comprador = await apoio.vendedor();
+      const id = await apoio.lote(vendedor);
+      const conversa = await conversaCom(comprador, id);
+      const proposta = (await propor(comprador, conversa).expect(201)).body.id;
+
+      // Uma transação de fora segura o lote até os dois pedidos estarem esperando a trava.
+      const trava = new pg.Client({
+        connectionString: process.env.DATABASE_URL ?? 'postgres://arroba:arroba@localhost:5432/arroba_direta',
+      });
+      await trava.connect();
+      try {
+        await trava.query('begin');
+        await trava.query('select id from lotes where id = $1 for update', [id]);
+        const pedidoMudanca = (
+          mudanca === 'editar' ? editar(vendedor, id, corpo({ quantidade: 18 })) : acao(vendedor, id, 'pausar')
+        ).then((r) => r);
+        const aceite = api().post(`/propostas/${proposta}/aceitar`).set('Authorization', vendedor).then((r) => r);
+        await esperarBloqueados(trava, 2);
+        await trava.query('commit');
+        const [m, a] = await Promise.all([pedidoMudanca, aceite]);
+
+        expect([m.status, a.status].sort()).toEqual([200, 409]);
+        const lote = (await api().get(`/lotes/${id}`).expect(200)).body;
+        const c = await ver(comprador, conversa);
+        if (a.status === 200) {
+          expect(lote).toMatchObject({ status: 'negociando', quantidade: 25 });
+          expect(c.pedido).not.toBeNull();
+        } else {
+          expect(lote).toMatchObject(mudanca === 'editar' ? { status: 'ativo', quantidade: 18 } : { status: 'encerrado' });
+          expect(c.pedido).toBeNull();
+          expect(propostaNa(c, proposta)?.status).toBe('expirada');
+        }
+      } finally {
+        await trava.end();
+      }
+    });
+  }
 });

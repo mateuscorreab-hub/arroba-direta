@@ -113,14 +113,13 @@ export function useCamposLote(inicial: ValoresLote) {
     return r.success ? r.data : null;
   }
 
-  function limpar(valores: ValoresLote) {
-    setTextos(valores.textos);
-    setCategoria(valores.categoria);
-    setUnidade(valores.unidade);
+  /** Volta os textos ao começo. A categoria e a unidade do preço ficam, para o próximo anúncio. */
+  function limparTextos() {
+    setTextos(inicial.textos);
     setErros({});
   }
 
-  return { textos, setTextos, categoria, setCategoria, unidade, setUnidade, erros, setErros, validar, limpar };
+  return { textos, setTextos, categoria, setCategoria, unidade, setUnidade, erros, setErros, validar, limparTextos };
 }
 
 export type FormLote = ReturnType<typeof useCamposLote>;

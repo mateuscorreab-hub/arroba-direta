@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, count, desc, eq, ilike, lte, gte, sql, type SQL } from 'drizzle-orm';
 import {
+  LOTE_NAO_ALTERA,
   MIN_FOTOS_PUBLICAR,
   celularDeContato,
   type ContatoVendedor,
@@ -8,9 +9,11 @@ import {
   type LoteCriar,
   type LoteFiltro,
   type Pagina,
+  type RegrasAnuncio,
+  type Sanidade,
   type StatusLote,
 } from '@arroba/shared';
-import { DB, type Db } from '../db/db.module.js';
+import { DB, type Db, type Tx } from '../db/db.module.js';
 import { lotes, midias, usuarios } from '../db/schema.js';
 import { MidiasService } from '../midias/midias.service.js';
 import { avisarMudancaNoLote } from '../negociacao/negociacao.service.js';
@@ -36,18 +39,24 @@ const POR_QUE_NAO: Partial<Record<StatusLote, string>> = {
   negociando: 'Este lote tem negócio fechado pelo app. Quando o gado for entregue, marque como vendido.',
   vendido: 'Este lote já foi vendido.',
 };
-const NAO_ALTERA: Partial<Record<StatusLote, string>> = {
-  negociando: 'Este lote tem negócio fechado pelo app e não pode mais ser alterado.',
-  vendido: 'Este lote já foi vendido e não pode mais ser alterado.',
-};
 // Mudam o gado ou a conta de uma proposta. Título, descrição e preço pedido não mexem no que já foi proposto.
 const CAMPOS_DO_GADO = ['categoria', 'raca', 'sexo', 'quantidade', 'pesoMedioKg', 'idadeMediaMeses', 'municipio', 'uf'] as const;
+// Os outros campos do PUT, para saber se algo mudou.
+const OUTROS_CAMPOS = ['titulo', 'unidadePreco', 'preco', 'lat', 'lng', 'descricao'] as const;
 
-// Avisos nas conversas do lote.
-const LOTE_ALTERADO = 'O vendedor alterou os dados do lote. Confira o anúncio antes de fazer uma proposta.';
-const LOTE_PAUSADO = 'O vendedor pausou o anúncio. Por enquanto não dá para fazer propostas por este lote.';
-const LOTE_DE_VOLTA = 'O anúncio voltou ao ar. Vocês já podem negociar de novo.';
-const LOTE_VENDIDO = 'O vendedor marcou este lote como vendido.';
+// Avisos nas conversas do lote, conforme a situação em que o lote fica.
+const LOTE_ALTERADO: Partial<Record<StatusLote, string>> = {
+  ativo: 'O vendedor alterou os dados do lote. Confira o anúncio antes de fazer uma proposta.',
+  em_analise:
+    'O vendedor alterou o anúncio, que passa por uma revisão antes de voltar à busca. Por enquanto não dá para fazer propostas.',
+  encerrado: 'O vendedor alterou os dados do lote. O anúncio continua pausado.',
+};
+const AVISO_DO_STATUS: Partial<Record<StatusLote, string>> = {
+  encerrado: 'O vendedor pausou o anúncio. Por enquanto não dá para fazer propostas por este lote.',
+  ativo: 'O anúncio voltou ao ar. Vocês já podem negociar de novo.',
+  em_analise: 'O anúncio voltou e passa por uma revisão antes de aceitar propostas de novo.',
+  vendido: 'O vendedor marcou este lote como vendido.',
+};
 
 @Injectable()
 export class LotesService {
@@ -119,17 +128,32 @@ export class LotesService {
     return linhas.map((l) => paraLote(l, this.midias.capa(l.capa)));
   }
 
+  /** GET /lotes/regras: o app avisa antes de salvar quando a edição tira o lote da busca. */
+  regras(): RegrasAnuncio {
+    return { revisaoManual: this.aprovacao === 'manual' };
+  }
+
   /**
    * Troca os dados do anúncio. Aqui e nas mudanças de situação abaixo, quem chama já conferiu que o usuário é o
    * vendedor (VendedorDoLoteGuard). Com revisão manual, o lote no ar volta para a revisão: o aprovado não pode
-   * virar outro.
+   * virar outro. Salvar sem mudar nada não mexe em nada.
    */
   async editar(id: string, dados: LoteCriar): Promise<Lote> {
     await this.db.transaction(async (tx) => {
       // Travado como no aceite de proposta: editar e fechar negócio ao mesmo tempo não se cruzam.
       const [atual] = await tx.select().from(lotes).where(eq(lotes.id, id)).for('update');
-      const bloqueio = NAO_ALTERA[atual.status];
+      const bloqueio = LOTE_NAO_ALTERA[atual.status];
       if (bloqueio) throw new ConflictException({ mensagem: bloqueio });
+      const igual = (c: (typeof CAMPOS_DO_GADO)[number] | (typeof OUTROS_CAMPOS)[number]) =>
+        (atual[c] ?? null) === (dados[c] ?? null);
+      const mudouGado = !CAMPOS_DO_GADO.every(igual);
+      const mudouAlgo =
+        mudouGado ||
+        !OUTROS_CAMPOS.every(igual) ||
+        (atual.disponivelEm?.getTime() ?? null) !== (dados.disponivelEm?.getTime() ?? null) ||
+        !mesmaSanidade(atual.sanidade, dados.sanidade);
+      if (!mudouAlgo) return;
+
       const status = atual.status === 'ativo' ? this.statusPublicado() : atual.status;
       await tx
         .update(lotes)
@@ -144,8 +168,8 @@ export class LotesService {
           status,
         })
         .where(eq(lotes.id, id));
-      const mudouGado = CAMPOS_DO_GADO.some((c) => (atual[c] ?? null) !== (dados[c] ?? null));
-      if (mudouGado || status !== atual.status) await avisarMudancaNoLote(tx, id, LOTE_ALTERADO);
+      const aviso = LOTE_ALTERADO[status];
+      if (aviso && (mudouGado || status !== atual.status)) await avisarMudancaNoLote(tx, id, atual.vendedorId, aviso);
     });
     return this.obter(id);
   }
@@ -156,8 +180,8 @@ export class LotesService {
 
   /** Volta ao ar o lote pausado (com revisão manual, volta para a revisão). */
   reativar(id: string): Promise<Lote> {
-    return this.mudarStatus(id, 'reativar', async () => {
-      await this.exigirFotos(id, 'reativar o anúncio');
+    return this.mudarStatus(id, 'reativar', async (tx) => {
+      await this.exigirFotos(id, 'reativar o anúncio', tx);
       return this.statusPublicado();
     });
   }
@@ -167,18 +191,22 @@ export class LotesService {
     return this.mudarStatus(id, 'vender', async () => 'vendido');
   }
 
-  /** `destino` só roda quando a mudança vai acontecer, com o lote travado. */
-  private async mudarStatus(id: string, acao: AcaoStatus, destino: () => Promise<StatusLote>): Promise<Lote> {
+  /** `destino` só roda quando a mudança vai acontecer, com o lote travado; o que ele ler usa o `tx`. */
+  private async mudarStatus(id: string, acao: AcaoStatus, destino: (tx: Tx) => Promise<StatusLote>): Promise<Lote> {
     await this.db.transaction(async (tx) => {
-      const [lote] = await tx.select({ status: lotes.status }).from(lotes).where(eq(lotes.id, id)).for('update');
+      const [lote] = await tx
+        .select({ status: lotes.status, vendedorId: lotes.vendedorId })
+        .from(lotes)
+        .where(eq(lotes.id, id))
+        .for('update');
       if (JA_FEITO[acao].includes(lote.status)) return;
       if (!PARTE_DE[acao].includes(lote.status)) {
         throw new ConflictException({ mensagem: POR_QUE_NAO[lote.status] ?? 'Não dá para fazer isso com este lote agora.' });
       }
-      const novo = await destino();
+      const novo = await destino(tx);
       await tx.update(lotes).set({ status: novo }).where(eq(lotes.id, id));
-      const aviso = novo === 'encerrado' ? LOTE_PAUSADO : novo === 'vendido' ? LOTE_VENDIDO : novo === 'ativo' ? LOTE_DE_VOLTA : null;
-      if (aviso) await avisarMudancaNoLote(tx, id, aviso);
+      const aviso = AVISO_DO_STATUS[novo];
+      if (aviso) await avisarMudancaNoLote(tx, id, lote.vendedorId, aviso);
     });
     return this.obter(id);
   }
@@ -214,8 +242,8 @@ export class LotesService {
     return { nome: linha.nome ?? '', telefone };
   }
 
-  private async exigirFotos(id: string, acao: string) {
-    if (this.midias.estado().ligado && (await this.midias.contar(id, 'foto')) < MIN_FOTOS_PUBLICAR) {
+  private async exigirFotos(id: string, acao: string, db: Db | Tx = this.db) {
+    if (this.midias.estado().ligado && (await this.midias.contar(id, 'foto', db)) < MIN_FOTOS_PUBLICAR) {
       throw new BadRequestException({ mensagem: `Coloque pelo menos uma foto do lote antes de ${acao}.` });
     }
   }
@@ -263,6 +291,14 @@ export class LotesService {
       .innerJoin(usuarios, eq(lotes.vendedorId, usuarios.id))
       .leftJoinLateral(capa, sql`true`);
   }
+}
+
+function mesmaSanidade(a: Sanidade, b: Sanidade): boolean {
+  return (
+    a.vermifugado === b.vermifugado &&
+    (a.observacoes ?? null) === (b.observacoes ?? null) &&
+    (a.vacinas ?? []).join() === (b.vacinas ?? []).join()
+  );
 }
 
 type Linha = {

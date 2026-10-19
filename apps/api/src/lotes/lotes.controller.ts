@@ -12,7 +12,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
-import { loteCriarSchema, loteFiltroSchema, type Lote, type LoteCriar, type LoteFiltro } from '@arroba/shared';
+import {
+  loteCriarSchema,
+  loteFiltroSchema,
+  type Lote,
+  type LoteCriar,
+  type LoteFiltro,
+  type RegrasAnuncio,
+} from '@arroba/shared';
 import { perfilCompleto, type Usuario } from '../auth/auth.service.js';
 import { AutenticadoGuard } from '../auth/autenticado.guard.js';
 import { UsuarioLogado } from '../auth/usuario-logado.decorator.js';
@@ -44,6 +51,12 @@ export class LotesController {
   @Get()
   buscar(@Query(new ZodPipe(loteFiltroSchema)) filtro: LoteFiltro) {
     return this.lotes.buscar(filtro);
+  }
+
+  /** Antes de ':id', para "regras" não ser lido como id de lote. */
+  @Get('regras')
+  regras(): RegrasAnuncio {
+    return this.lotes.regras();
   }
 
   @Get(':id')

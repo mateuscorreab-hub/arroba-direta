@@ -66,6 +66,12 @@ export interface Lote extends Omit<LoteCriar, 'disponivelEm'> {
   midias?: Midia[];
 }
 
+/** GET /lotes/regras: como a API trata os anúncios. */
+export interface RegrasAnuncio {
+  /** Com revisão manual, o anúncio no ar que é alterado sai da busca até ser aprovado de novo. */
+  revisaoManual: boolean;
+}
+
 export interface Pagina<T> {
   itens: T[];
   total: number;

@@ -15,6 +15,7 @@ import {
   type Pagina,
   type PedidoEnvioMidia,
   type Perfil,
+  type RegrasAnuncio,
   type PropostaCriar,
   type PropostaNegociacao,
   type RegistrarMidia,
@@ -146,6 +147,10 @@ export function criarLote(dados: LoteCriar, opcoes: { rascunho?: boolean } = {})
 /** Tira o lote do rascunho e manda para a revisão. Repetir não faz mal: o lote já publicado volta como está. */
 export function publicarLote(id: string) {
   return requisitar<Lote>(`/lotes/${id}/publicar`, enviar('POST'), tokenAtual);
+}
+
+export function obterRegrasAnuncio() {
+  return requisitar<RegrasAnuncio>('/lotes/regras');
 }
 
 /** Os lotes de quem fez login, em qualquer situação ("Meus anúncios"). */

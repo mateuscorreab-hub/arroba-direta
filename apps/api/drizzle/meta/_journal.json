@@ -36,6 +36,13 @@
       "when": 1792421320615,
       "tag": "0004_fearless_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792428111893,
+      "tag": "0005_parallel_spot",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import {
   UNIDADE_PRECO_ROTULO,
   formatarReais,
   type Lote,
+  type PapelNegociacao,
   type StatusLote,
   type UnidadePreco,
   type UnidadeProposta,
@@ -18,10 +19,20 @@ export function precoDaProposta(p: { preco: number; unidadePreco: UnidadePropost
   return `${formatarReais(p.preco)} ${UNIDADE_PRECO_ROTULO[p.unidadePreco]}`;
 }
 
-/** Para quem quer comprar: por que o lote fora da busca não aceita conversa nova nem proposta. */
-export function motivoIndisponivel(status: StatusLote): string {
-  if (status === 'vendido') return 'Este lote já foi vendido.';
-  if (status === 'encerrado') return 'O vendedor pausou este anúncio. Por enquanto não dá para fazer propostas.';
+/** Por que o lote fora da busca não aceita proposta, para o comprador ou para o próprio vendedor. */
+export function motivoIndisponivel(status: StatusLote, papel: PapelNegociacao = 'comprador'): string {
+  const vendedor = papel === 'vendedor';
+  if (status === 'vendido') return vendedor ? 'Você marcou este lote como vendido.' : 'Este lote já foi vendido.';
+  if (status === 'encerrado') {
+    return vendedor
+      ? 'Você pausou este anúncio. Reative na tela do lote para voltar a negociar.'
+      : 'O vendedor pausou este anúncio. Por enquanto não dá para fazer propostas.';
+  }
+  if (status === 'em_analise') {
+    return vendedor
+      ? 'Seu anúncio está em revisão. Vocês voltam a negociar quando ele for aprovado.'
+      : 'O anúncio está em revisão. Ele volta a aceitar propostas depois de aprovado.';
+  }
   return 'Este lote não está mais disponível para negociação.';
 }
 

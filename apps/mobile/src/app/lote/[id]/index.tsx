@@ -1,5 +1,5 @@
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { CATEGORIA_ROTULO, type Lote } from '@arroba/shared';
 
@@ -21,11 +21,19 @@ export default function LoteDetalhe() {
   const [lote, setLote] = useState<Lote | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Cada troca do lote pelo painel do vendedor conta uma versão: a recarga que saiu antes dela é descartada.
+  const versao = useRef(0);
+  const mudarLote = useCallback((l: Lote) => {
+    versao.current += 1;
+    setLote(l);
+  }, []);
+
   const carregar = useCallback(() => {
     let ativo = true;
+    const minha = versao.current;
     obterLote(id).then(
       (l) => {
-        if (!ativo) return;
+        if (!ativo || minha !== versao.current) return;
         setLote(l);
         setErro(null);
       },
@@ -82,7 +90,7 @@ export default function LoteDetalhe() {
       <View style={estilos.coluna}>
         <GaleriaLote midias={lote.midias ?? []} categoria={categoria} titulo={lote.titulo} />
         <View style={estilos.conteudo}>
-          {souVendedor && <PainelDoVendedor lote={lote} aoMudar={setLote} />}
+          {souVendedor && <PainelDoVendedor lote={lote} aoMudar={mudarLote} />}
           <Texto tipo="titulo">{lote.titulo}</Texto>
           <Texto tipo="destaque" cor="brand">
             {precoDoLote(lote)}
