@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import {
   entrarSchema,
   perfilSchema,
@@ -11,6 +12,7 @@ import {
 import { ZodPipe } from '../comum/zod.pipe.js';
 import { AuthService, paraEu, type Usuario } from './auth.service.js';
 import { AutenticadoGuard } from './autenticado.guard.js';
+import { ipDoCliente } from './ip-do-cliente.js';
 import { SessaoId, UsuarioLogado } from './usuario-logado.decorator.js';
 
 @Controller()
@@ -18,8 +20,8 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post('auth/codigo')
-  solicitarCodigo(@Body(new ZodPipe(solicitarCodigoSchema)) { telefone }: SolicitarCodigo) {
-    return this.auth.solicitarCodigo(telefone);
+  solicitarCodigo(@Body(new ZodPipe(solicitarCodigoSchema)) { telefone }: SolicitarCodigo, @Req() req: Request) {
+    return this.auth.solicitarCodigo(telefone, ipDoCliente(req));
   }
 
   @Post('auth/entrar')

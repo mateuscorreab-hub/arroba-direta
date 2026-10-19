@@ -43,6 +43,13 @@
       "when": 1792428111893,
       "tag": "0005_parallel_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792443909704,
+      "tag": "0006_lyrical_moira_mactaggert",
+      "breakpoints": true
     }
   ]
 }

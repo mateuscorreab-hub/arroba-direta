@@ -1,4 +1,4 @@
-import { createHash, randomInt } from 'node:crypto';
+import { createHash, createHmac, randomInt } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { eq, inArray, sql } from 'drizzle-orm';
@@ -23,6 +23,7 @@ const loteValido = {
 };
 
 const sha256 = (texto: string) => createHash('sha256').update(texto).digest('hex');
+const SEGREDO = 'segredo-dos-testes-de-login-0123456789abcdef';
 
 // Requer Postgres com migrations aplicadas (pnpm db:migrate). Usa CODIGO_MODO=teste (padrão fora de produção).
 describe('Login por código (e2e)', () => {
@@ -56,9 +57,14 @@ describe('Login por código (e2e)', () => {
   }
 
   beforeAll(async () => {
-    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = mod.createNestApplication();
-    await app.init();
+    vi.stubEnv('CODIGO_SEGREDO', SEGREDO);
+    try {
+      const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+      app = mod.createNestApplication();
+      await app.init();
+    } finally {
+      vi.unstubAllEnvs();
+    }
     db = app.get(DB);
   });
 
@@ -83,7 +89,10 @@ describe('Login por código (e2e)', () => {
     expect(minutos).toBeLessThan(10.5);
 
     const [salvo] = await db.select().from(codigosLogin).where(eq(codigosLogin.telefone, telefone));
-    expect(salvo.codigoHash).toBe(sha256(`${telefone}:${codigoTeste}`));
+    // HMAC com a chave do servidor, não o sha256 que dá para quebrar testando 1 milhão de códigos.
+    expect(salvo.codigoHash).toBe(createHmac('sha256', SEGREDO).update(`${telefone}:${codigoTeste}`).digest('hex'));
+    expect(salvo.porSms).toBe(false);
+    expect(salvo.ip).toBe('127.0.0.1');
 
     const res = await entrar(telefone, codigoTeste).expect(200);
     expect(res.body.token).toMatch(/^[\w-]{43}$/);
@@ -271,11 +280,15 @@ describe('Login por código (e2e)', () => {
     await request(app.getHttpServer()).post('/auth/sair').set('Authorization', auth).expect(401);
   });
 
-  it('a API não sobe com CODIGO_MODO inválido', async () => {
-    vi.stubEnv('CODIGO_MODO', 'sms');
+  it('a API não sobe com CODIGO_MODO inválido nem com SMS sem a chave', async () => {
     try {
+      vi.stubEnv('CODIGO_MODO', 'whatsapp');
       await expect(Test.createTestingModule({ imports: [AppModule] }).compile()).rejects.toThrow(
-        /SMS ainda não foi implementado/,
+        /CODIGO_MODO inválido/,
+      );
+      vi.stubEnv('CODIGO_MODO', 'sms');
+      await expect(Test.createTestingModule({ imports: [AppModule] }).compile()).rejects.toThrow(
+        /CODIGO_MODO=sms precisa de CODIGO_SEGREDO/,
       );
     } finally {
       vi.unstubAllEnvs();

@@ -60,7 +60,7 @@ function PassoTelefone({
   return (
     <View style={estilos.passo}>
       <Texto tipo="titulo">Entre com seu celular</Texto>
-      <Texto cor="textSecondary">Você recebe um código para entrar. Não precisa de senha.</Texto>
+      <Texto cor="textSecondary">Você recebe um código por SMS para entrar. Não precisa de senha.</Texto>
       <CampoTexto
         rotulo="Número do celular com DDD"
         placeholder="(67) 99999-0001"
@@ -149,9 +149,14 @@ function PassoCodigo({
         <Texto style={estilos.negrito}>{formatarTelefone(envio.telefone)}</Texto>
       </Texto>
 
+      {!envio.codigoTeste && (
+        <Texto tipo="pequeno" cor="textSecondary">
+          O SMS pode levar até um minuto para chegar. Se não chegar, confira o número ou peça de novo.
+        </Texto>
+      )}
       {envio.codigoTeste && (
         <Aviso>
-          <Texto>Versão de teste: o código aparece aqui. Na versão final ele chega por SMS ou WhatsApp.</Texto>
+          <Texto>Versão de teste: o código aparece aqui. Na versão final ele chega por SMS.</Texto>
           <Texto cor="brand" selectable style={estilos.codigoTeste} accessibilityLabel={`Código ${envio.codigoTeste.split('').join(' ')}`}>
             {envio.codigoTeste}
           </Texto>
