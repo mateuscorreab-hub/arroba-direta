@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -87,6 +88,7 @@ function PerfilLogado({ usuario }: { usuario: Eu }) {
           quem tem o selo.
         </Aviso>
       )}
+      <Botao titulo="Meus anúncios" variante="secundario" onPress={() => router.push('/meus-anuncios')} />
       <Botao
         titulo="Editar perfil"
         variante="secundario"

@@ -148,6 +148,29 @@ export function publicarLote(id: string) {
   return requisitar<Lote>(`/lotes/${id}/publicar`, enviar('POST'), tokenAtual);
 }
 
+/** Os lotes de quem fez login, em qualquer situação ("Meus anúncios"). */
+export function listarMeusLotes() {
+  return requisitar<Lote[]>('/eu/lotes', undefined, tokenAtual);
+}
+
+/** Manda o anúncio inteiro: o campo opcional que faltar fica em branco. */
+export function editarLote(id: string, dados: LoteCriar) {
+  return requisitar<Lote>(`/lotes/${id}`, enviar('PUT', dados), tokenAtual);
+}
+
+/** Pausar, reativar e vender: repetir não faz mal, o lote que já mudou volta como está. */
+export function pausarLote(id: string) {
+  return requisitar<Lote>(`/lotes/${id}/pausar`, enviar('POST'), tokenAtual);
+}
+
+export function reativarLote(id: string) {
+  return requisitar<Lote>(`/lotes/${id}/reativar`, enviar('POST'), tokenAtual);
+}
+
+export function marcarLoteVendido(id: string) {
+  return requisitar<Lote>(`/lotes/${id}/vendido`, enviar('POST'), tokenAtual);
+}
+
 export function solicitarCodigo(dados: SolicitarCodigo) {
   return requisitar<RespostaSolicitarCodigo>('/auth/codigo', enviar('POST', dados));
 }

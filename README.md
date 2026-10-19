@@ -38,6 +38,7 @@ pnpm --filter @arroba/api test:e2e   # testes da API contra o banco
 ## O que já funciona
 
 - API: `GET /saude`, `GET /lotes` (filtros por categoria, UF, raça, quantidade, preço e raio em km), `GET /lotes/:id`, `GET /lotes/:id/contato` (exige login; nome e telefone do vendedor, só de lote na busca; os lotes de exemplo do seed respondem que não têm telefone), `POST /lotes` (exige login e perfil completo; validação com mensagens em português; com `?rascunho=1` o lote nasce em rascunho, fora da busca) e `POST /lotes/:id/publicar` (só o vendedor; tira do rascunho e manda para análise, exigindo pelo menos uma foto quando o envio de fotos está ligado).
+- Meus anúncios: `GET /eu/lotes` lista os lotes de quem fez login, em qualquer situação. Só o vendedor do lote usa `PUT /lotes/:id` (troca os dados; o corpo é o anúncio inteiro), `POST /lotes/:id/pausar` (sai da busca), `POST /lotes/:id/reativar` (volta ao ar; exige foto como o publicar) e `POST /lotes/:id/vendido` (sai da busca de vez). Lote com negócio fechado ou vendido não pode mais ser alterado. Quando o vendedor pausa, vende ou muda os dados do gado (categoria, raça, quantidade, peso, idade ou local), a proposta em aberto deixa de valer e as conversas do lote recebem um aviso. Com revisão manual, o lote no ar que é alterado ou reativado volta para a análise.
 - Login pelo celular: `POST /auth/codigo` gera um código de 6 números (vale 10 minutos, até 5 pedidos por hora por telefone), `POST /auth/entrar` troca o código por uma sessão de 90 dias (5 tentativas erradas bloqueiam o código) e `POST /auth/sair` encerra a sessão. As rotas logadas usam `Authorization: Bearer <token>`.
 - Perfil: `GET /eu` e `PATCH /eu` (nome, município e estado). Só quem tem o perfil completo pode anunciar.
 - Envio do código: por enquanto só existe a versão de teste (`CODIGO_MODO=teste`, já configurada no Render), em que o código aparece na tela em vez de chegar por SMS. Nela qualquer pessoa entra com qualquer número, então não use dados reais.
@@ -46,7 +47,7 @@ pnpm --filter @arroba/api test:e2e   # testes da API contra o banco
 - Aprovação de anúncios: com `APROVACAO_LOTES=manual` (padrão) o lote novo fica em análise; com `automatica` (configurada no Render) ele já entra na busca, para dar para testar a negociação.
 - Banco: tabelas de usuários, sessões, códigos de login, lotes, mídias, conversas, mensagens, propostas, pedidos, documentos (GTA, nota, atestado, ticket de balança) e avaliações.
 - Site: página inicial, lista de lotes com filtros e página de cada lote.
-- App: abas Buscar (lista com filtro por categoria), Anunciar (formulário validado), Conversas e Perfil; tela de detalhe do lote com o telefone do vendedor, "Chamar no WhatsApp", "Conversar pelo app" e "Fazer proposta" (o telefone só aparece para quem fez login); tela da conversa com propostas, contraproposta, aceite e recusa.
+- App: abas Buscar (lista com filtro por categoria), Anunciar (formulário validado), Conversas e Perfil; tela de detalhe do lote com o telefone do vendedor, "Chamar no WhatsApp", "Conversar pelo app" e "Fazer proposta" (o telefone só aparece para quem fez login); tela da conversa com propostas, contraproposta, aceite e recusa. "Meus anúncios" (no Perfil) lista os lotes do vendedor com a situação de cada um; na tela do lote, o vendedor edita, pausa, reativa e marca como vendido.
 
 ## Fotos e vídeo: onde ficam os arquivos
 
@@ -69,6 +70,6 @@ No plano grátis do Cloudinary, foto vai até 10 MB e vídeo até 100 MB (os mes
 2. Localização pelo GPS e rascunho offline. Nas fotos: moderação antes de publicar e limpeza dos arquivos que foram enviados mas nunca registrados e dos rascunhos abandonados (com as fotos deles).
 3. Receita: destaque pago (lote no topo da busca), plano para quem anuncia muito e espaço de propaganda para empresas do agro.
 4. Segurança contra golpe: botão de denúncia no anúncio, selo de vendedor verificado e dica de segurança antes do contato.
-5. Prazo e desistência do negócio: hoje o lote fica em `negociando` depois do aceite, sem volta pelo app; o vendedor também precisa marcar o lote como vendido.
+5. Prazo e desistência do negócio: hoje o lote fica em `negociando` depois do aceite, sem volta pelo app; o vendedor só pode marcar como vendido.
 6. Avisos no celular (push) de mensagem e proposta nova; hoje o app consulta a API a cada poucos segundos.
 7. Painel interno de moderação (aprovar anúncios; até lá a versão de teste usa `APROVACAO_LOTES=automatica`).

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CATEGORIAS, SEXOS, UFS, UNIDADES_PRECO, VACINAS } from './dominio.js';
+import { CATEGORIAS, SEXOS, UFS, UNIDADES_PRECO, VACINAS, type StatusLote } from './dominio.js';
 import type { Midia } from './midias.js';
 
 export const sanidadeSchema = z.object({
@@ -55,7 +55,7 @@ export type LoteFiltro = z.infer<typeof loteFiltroSchema>;
 /** Formato público de um lote, como a API devolve. */
 export interface Lote extends Omit<LoteCriar, 'disponivelEm'> {
   id: string;
-  status: string;
+  status: StatusLote;
   disponivelEm: string | null;
   criadoEm: string;
   distanciaKm?: number;

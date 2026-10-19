@@ -38,7 +38,7 @@ const PROPOSTA_RECUSADA = 'Proposta recusada.';
 const MENSAGENS_NO_DETALHE = 200;
 const VALOR_TOTAL_MAX = 999_999_999_999.99; // limite de pedidos.valor_total numeric(14,2)
 
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type PropostaLinha = typeof propostas.$inferSelect;
 type MensagemLinha = typeof mensagens.$inferSelect;
 type PedidoLinha = typeof pedidos.$inferSelect;
@@ -404,6 +404,19 @@ async function avisar(tx: Tx, conversaIds: string[], texto: string) {
   if (conversaIds.length === 0) return;
   await tx.insert(mensagens).values(conversaIds.map((conversaId) => ({ conversaId, tipo: 'sistema' as const, texto })));
   await tocar(tx, conversaIds);
+}
+
+/**
+ * O vendedor mudou o lote (editou, pausou, reativou, vendeu): a proposta em aberto vence, porque foi feita
+ * sobre o lote de antes, e todas as conversas do lote recebem o aviso. Quem chama já travou o lote (FOR UPDATE).
+ */
+export async function avisarMudancaNoLote(tx: Tx, loteId: string, texto: string) {
+  await tx
+    .update(propostas)
+    .set({ status: 'expirada' })
+    .where(and(eq(propostas.loteId, loteId), eq(propostas.status, 'enviada')));
+  const doLote = await tx.select({ id: conversas.id }).from(conversas).where(eq(conversas.loteId, loteId));
+  await avisar(tx, doLote.map((c) => c.id), texto);
 }
 
 /** Quantidade, peso, valor total e data que dependem do lote; os outros campos o schema já validou. */

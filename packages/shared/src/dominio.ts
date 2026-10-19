@@ -58,6 +58,16 @@ export const STATUS_LOTE = [
 ] as const;
 export type StatusLote = (typeof STATUS_LOTE)[number];
 
+/** Como o vendedor vê a situação do lote em "Meus anúncios". */
+export const STATUS_LOTE_ROTULO: Record<StatusLote, string> = {
+  rascunho: 'Rascunho',
+  em_analise: 'Em análise',
+  ativo: 'No ar',
+  negociando: 'Negócio fechado',
+  vendido: 'Vendido',
+  encerrado: 'Pausado',
+};
+
 export const STATUS_PEDIDO = [
   'aguardando_pagamento',
   'pago',

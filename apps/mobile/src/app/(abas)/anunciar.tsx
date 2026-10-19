@@ -2,31 +2,17 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  CATEGORIAS,
-  CATEGORIA_ROTULO,
-  MAX_FOTOS_LOTE,
-  MAX_VIDEOS_LOTE,
-  MIN_FOTOS_PUBLICAR,
-  UNIDADES_PRECO,
-  UNIDADE_PRECO_ROTULO,
-  loteCriarSchema,
-  type Categoria,
-  type Eu,
-  type TipoMidia,
-  type UnidadePreco,
-} from '@arroba/shared';
+import { MAX_FOTOS_LOTE, MAX_VIDEOS_LOTE, MIN_FOTOS_PUBLICAR, type Eu, type TipoMidia } from '@arroba/shared';
 
 import { Aviso } from '@/componentes/aviso';
 import { AvisoPermissao } from '@/componentes/aviso-permissao';
 import { Botao } from '@/componentes/botao';
 import { BotoesEscolha } from '@/componentes/botoes-escolha';
-import { CampoTexto } from '@/componentes/campo-texto';
+import { CamposLote, useCamposLote, valoresEmBranco } from '@/componentes/campos-lote';
 import { CartaoArquivo } from '@/componentes/cartao-arquivo';
 import { DicaFotos } from '@/componentes/dica-fotos';
 import { LinhaEnvio } from '@/componentes/linha-envio';
 import { ManterTelaLigada } from '@/componentes/manter-tela-ligada';
-import { Opcoes } from '@/componentes/opcoes';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useAvisarAoFechar } from '@/hooks/use-avisar-ao-fechar';
@@ -53,6 +39,8 @@ const COMO_COLOCAR =
     : `Até ${MAX_FOTOS_LOTE} fotos e um vídeo de até 1 minuto. A primeira foto é a capa do anúncio.`;
 // Cada foto da grade tem pelo menos esta largura; cabem de 2 a 4 por linha.
 const LARGURA_MINIMA_FOTO = 150;
+// TODO: pegar do GPS. Por enquanto, centro aproximado do Brasil.
+const LOCAL_PROVISORIO = { lat: -15.78, lng: -47.93 };
 
 export default function Anunciar() {
   const tema = useTheme();
@@ -131,19 +119,8 @@ async function acertarOrdem(loteId: string, itens: ItemEnvio[]) {
  */
 function FormularioLote({ usuario }: { usuario: Eu }) {
   const janela = useWindowDimensions();
-  const vazio = {
-    titulo: '',
-    raca: '',
-    quantidade: '',
-    pesoMedioKg: '',
-    preco: '',
-    municipio: usuario.municipio ?? '',
-    uf: usuario.uf ?? '',
-  };
-  const [categoria, setCategoria] = useState<Categoria>('bezerro');
-  const [unidade, setUnidade] = useState<UnidadePreco>('cabeca');
-  const [campos, setCampos] = useState(vazio);
-  const [erros, setErros] = useState<Record<string, string>>({});
+  const vazio = valoresEmBranco(usuario.municipio ?? '', usuario.uf ?? '');
+  const form = useCamposLote(vazio);
   const [aviso, setAviso] = useState<{ tipo: 'info' | 'erro'; texto: string } | null>(null);
   const [passo, setPasso] = useState<Passo | null>(null);
   // Lote já criado em rascunho: uma nova tentativa continua nele, sem criar outro.
@@ -194,26 +171,6 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
   else if (passo === 'enviando') tituloBotao = 'Enviando fotos…';
   else if (passo === 'publicando') tituloBotao = 'Publicando…';
 
-  const num = (s: string) => (s.trim() === '' ? undefined : Number(s.replace(',', '.')));
-
-  function validarCampos() {
-    return loteCriarSchema.safeParse({
-      titulo: campos.titulo,
-      categoria,
-      raca: campos.raca,
-      sexo: ['bezerra', 'novilha', 'vaca', 'vaca_prenhe'].includes(categoria) ? 'femea' : 'macho',
-      quantidade: num(campos.quantidade),
-      pesoMedioKg: num(campos.pesoMedioKg),
-      unidadePreco: unidade,
-      preco: unidade === 'a_combinar' ? undefined : num(campos.preco),
-      municipio: campos.municipio,
-      uf: campos.uf.trim().toUpperCase(),
-      // TODO: pegar do GPS. Por enquanto, centro aproximado do Brasil.
-      lat: -15.78,
-      lng: -47.93,
-    });
-  }
-
   async function escolher(acao: Escolha) {
     setAvisoFotos(null);
     const r = await escolha.escolher(acao, fotosRestantes);
@@ -240,16 +197,15 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
 
     let id = rascunhoId;
     if (id === null) {
-      const r = validarCampos();
-      setErros(r.success ? {} : Object.fromEntries(r.error.issues.map((i) => [String(i.path[0]), i.message])));
-      if (!r.success || faltaFoto) {
+      const dados = form.validar(LOCAL_PROVISORIO);
+      if (!dados || faltaFoto) {
         if (faltaFoto) setErroFotos(FALTA_FOTO);
-        setAviso({ tipo: 'erro', texto: r.success ? FALTA_FOTO : CONFIRA_CAMPOS });
+        setAviso({ tipo: 'erro', texto: dados ? FALTA_FOTO : CONFIRA_CAMPOS });
         return;
       }
       setPasso('criando');
       try {
-        id = (await criarLote(r.data, { rascunho: true })).id;
+        id = (await criarLote(dados, { rascunho: true })).id;
       } catch (e) {
         setPasso(null);
         // 401: a sessão já foi encerrada pela API; leva a pessoa para entrar de novo.
@@ -258,7 +214,7 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
           return;
         }
         const porCampo = e instanceof ErroApi ? e.erros : {};
-        setErros(porCampo);
+        form.setErros(porCampo);
         setAviso({ tipo: 'erro', texto: Object.keys(porCampo).length > 0 ? CONFIRA_CAMPOS : textoDoErro(e) });
         return;
       }
@@ -287,8 +243,7 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
       await acertarOrdem(id, itens);
       const lote = await publicarLote(id);
       fila.limpar();
-      setCampos(vazio);
-      setErros({});
+      form.limpar(vazio);
       setRascunhoId(null);
       setAviso({ tipo: 'info', texto: lote.status === 'ativo' ? ANUNCIO_PUBLICADO : ANUNCIO_ENVIADO });
       router.push({ pathname: '/lote/[id]', params: { id: lote.id } });
@@ -308,53 +263,12 @@ function FormularioLote({ usuario }: { usuario: Eu }) {
     }
   }
 
-  const campo = (chave: keyof typeof campos, rotulo: string, numerico = false) => (
-    <CampoTexto
-      rotulo={rotulo}
-      value={campos[chave]}
-      onChangeText={(v) => setCampos((c) => ({ ...c, [chave]: v }))}
-      keyboardType={numerico ? 'decimal-pad' : 'default'}
-      editable={!travado}
-      erro={erros[chave]}
-    />
-  );
-
   return (
     <>
       {ocupado && <ManterTelaLigada />}
       <Texto tipo="titulo">Anunciar lote</Texto>
       {rascunhoId !== null && !ocupado && <Aviso>{DADOS_SALVOS}</Aviso>}
-      {campo('titulo', 'Título (ex.: 100 bezerros Nelore desmamados)')}
-      <View style={estilos.grupo}>
-        <Texto tipo="pequeno" cor="textSecondary">
-          Categoria
-        </Texto>
-        <Opcoes
-          lista={CATEGORIAS}
-          rotulos={CATEGORIA_ROTULO}
-          atual={categoria}
-          aoEscolher={setCategoria}
-          desabilitado={travado}
-        />
-      </View>
-      {campo('raca', 'Raça')}
-      {campo('quantidade', 'Quantidade de cabeças', true)}
-      {campo('pesoMedioKg', 'Peso médio (kg)', true)}
-      <View style={estilos.grupo}>
-        <Texto tipo="pequeno" cor="textSecondary">
-          Preço
-        </Texto>
-        <Opcoes
-          lista={UNIDADES_PRECO}
-          rotulos={UNIDADE_PRECO_ROTULO}
-          atual={unidade}
-          aoEscolher={setUnidade}
-          desabilitado={travado}
-        />
-      </View>
-      {unidade !== 'a_combinar' && campo('preco', 'Valor (R$)', true)}
-      {campo('municipio', 'Município')}
-      {campo('uf', 'Estado (UF)')}
+      <CamposLote form={form} travado={travado} />
 
       <View style={estilos.secao}>
         <Texto tipo="subtitulo">Fotos e vídeo</Texto>

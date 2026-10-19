@@ -18,6 +18,8 @@ export default function RootLayout() {
             name="lote/[id]/midias"
             options={{ title: 'Fotos e vídeo do lote', headerBackTitle: 'Voltar' }}
           />
+          <Stack.Screen name="lote/[id]/editar" options={{ title: 'Editar anúncio', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="meus-anuncios" options={{ title: 'Meus anúncios', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="conversa/[id]/index" options={{ title: 'Conversa', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="conversa/[id]/proposta" options={{ title: 'Proposta', headerBackTitle: 'Voltar' }} />
         </Stack>

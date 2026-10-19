@@ -1,11 +1,11 @@
 import { randomInt } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { inArray } from 'drizzle-orm';
+import { inArray, or } from 'drizzle-orm';
 import type pg from 'pg';
 import request from 'supertest';
 import type { EnvioMidia, Midia, TipoMidia } from '@arroba/shared';
 import type { Db } from '../db/db.module.js';
-import { codigosLogin, lotes, usuarios } from '../db/schema.js';
+import { codigosLogin, conversas, lotes, mensagens, pedidos, propostas, usuarios } from '../db/schema.js';
 import { png } from './arquivos-falsos.teste.js';
 
 /** Cria contas e lotes de teste e apaga tudo no fim. */
@@ -67,6 +67,17 @@ export class ApoioE2e {
   async limpar(db: Db) {
     if (this.telefones.length === 0) return;
     const ids = db.select({ id: usuarios.id }).from(usuarios).where(inArray(usuarios.telefone, this.telefones));
+    // Antes dos lotes, as negociações deles e as que essas contas abriram.
+    const doLote = db.select({ id: lotes.id }).from(lotes).where(inArray(lotes.vendedorId, ids));
+    const conversasIds = db
+      .select({ id: conversas.id })
+      .from(conversas)
+      .where(or(inArray(conversas.loteId, doLote), inArray(conversas.compradorId, ids)));
+    const propostasIds = db.select({ id: propostas.id }).from(propostas).where(inArray(propostas.conversaId, conversasIds));
+    await db.delete(mensagens).where(inArray(mensagens.conversaId, conversasIds));
+    await db.delete(pedidos).where(inArray(pedidos.propostaId, propostasIds));
+    await db.delete(propostas).where(inArray(propostas.conversaId, conversasIds));
+    await db.delete(conversas).where(inArray(conversas.id, conversasIds));
     await db.delete(lotes).where(inArray(lotes.vendedorId, ids));
     await db.delete(usuarios).where(inArray(usuarios.telefone, this.telefones));
     await db.delete(codigosLogin).where(inArray(codigosLogin.telefone, this.telefones));

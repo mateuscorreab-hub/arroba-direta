@@ -11,7 +11,9 @@ Login de teste: na aba Perfil, digite qualquer celular válido com DDD e toque e
 
 Para ver o app no navegador, sem celular: `pnpm web` (a versão web usa uma barra de abas simples, em `src/app/(abas)/_layout.web.tsx`).
 
-Telas: `src/app/(abas)` (Buscar, Anunciar, Conversas, Perfil), `src/app/lote/[id]/index.tsx` (detalhe do lote, com a galeria e os botões de negociação), `src/app/lote/[id]/midias.tsx` (para mudar as fotos e o vídeo depois de publicar, só para o vendedor), `src/app/conversa/[id]/index.tsx` (conversa com mensagens e propostas) e `src/app/conversa/[id]/proposta.tsx` (formulário de proposta e contraproposta).
+Telas: `src/app/(abas)` (Buscar, Anunciar, Conversas, Perfil), `src/app/lote/[id]/index.tsx` (detalhe do lote, com a galeria e os botões de negociação), `src/app/lote/[id]/midias.tsx` (para mudar as fotos e o vídeo depois de publicar, só para o vendedor), `src/app/lote/[id]/editar.tsx` (editar o anúncio), `src/app/meus-anuncios.tsx` (os lotes de quem fez login, aberta pelo Perfil), `src/app/conversa/[id]/index.tsx` (conversa com mensagens e propostas) e `src/app/conversa/[id]/proposta.tsx` (formulário de proposta e contraproposta).
+
+O vendedor cuida do anúncio no painel do alto da tela do lote (`src/componentes/painel-vendedor.tsx`): editar, fotos e vídeo, pausar, reativar, publicar o rascunho e marcar como vendido, com confirmação na própria tela. Os campos do anúncio são os mesmos no Anunciar e no Editar (`src/componentes/campos-lote.tsx`).
 
 ## Testar a negociação
 

@@ -7,11 +7,12 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
-import { loteCriarSchema, loteFiltroSchema, type LoteCriar, type LoteFiltro } from '@arroba/shared';
+import { loteCriarSchema, loteFiltroSchema, type Lote, type LoteCriar, type LoteFiltro } from '@arroba/shared';
 import { perfilCompleto, type Usuario } from '../auth/auth.service.js';
 import { AutenticadoGuard } from '../auth/autenticado.guard.js';
 import { UsuarioLogado } from '../auth/usuario-logado.decorator.js';
@@ -75,5 +76,50 @@ export class LotesController {
   publicar(@UsuarioLogado() usuario: Usuario, @Param('id') id: string) {
     exigirPerfilCompleto(usuario);
     return this.lotes.publicar(id);
+  }
+
+  /** O corpo é o anúncio inteiro, como em POST /lotes. */
+  @Put(':id')
+  @UseGuards(AutenticadoGuard, VendedorDoLoteGuard)
+  @SoVendedorDoLote('Só o vendedor do lote pode alterar o anúncio.')
+  editar(@Param('id') id: string, @Body(new ZodPipe(loteCriarSchema)) dados: LoteCriar) {
+    return this.lotes.editar(id, dados);
+  }
+
+  /** Tira da busca até o vendedor reativar. */
+  @Post(':id/pausar')
+  @HttpCode(200)
+  @UseGuards(AutenticadoGuard, VendedorDoLoteGuard)
+  @SoVendedorDoLote('Só o vendedor do lote pode pausar o anúncio.')
+  pausar(@Param('id') id: string) {
+    return this.lotes.pausar(id);
+  }
+
+  @Post(':id/reativar')
+  @HttpCode(200)
+  @UseGuards(AutenticadoGuard, VendedorDoLoteGuard)
+  @SoVendedorDoLote('Só o vendedor do lote pode reativar o anúncio.')
+  reativar(@Param('id') id: string) {
+    return this.lotes.reativar(id);
+  }
+
+  @Post(':id/vendido')
+  @HttpCode(200)
+  @UseGuards(AutenticadoGuard, VendedorDoLoteGuard)
+  @SoVendedorDoLote('Só o vendedor do lote pode marcar o lote como vendido.')
+  marcarVendido(@Param('id') id: string) {
+    return this.lotes.marcarVendido(id);
+  }
+}
+
+/** "Meus anúncios": os lotes de quem fez login, em qualquer situação. */
+@Controller('eu/lotes')
+@UseGuards(AutenticadoGuard)
+export class MeusLotesController {
+  constructor(private readonly lotes: LotesService) {}
+
+  @Get()
+  listar(@UsuarioLogado() usuario: Usuario): Promise<Lote[]> {
+    return this.lotes.doVendedor(usuario.id);
   }
 }

@@ -1,24 +1,18 @@
-import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { CATEGORIA_ROTULO, type Lote } from '@arroba/shared';
 
-import { Aviso } from '@/componentes/aviso';
 import { Botao } from '@/componentes/botao';
 import { GaleriaLote, LARGURA_MAXIMA } from '@/componentes/galeria-lote';
 import { NegociarLote } from '@/componentes/negociar-lote';
+import { PainelDoVendedor } from '@/componentes/painel-vendedor';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { obterLote, textoDoErro } from '@/lib/api';
 import { precoDoLote } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
-
-// Só o vendedor vê: o lote fora da busca precisa dizer por quê, senão ele acha que deu errado e anuncia de novo.
-const AVISO_DO_STATUS: Record<string, string> = {
-  em_analise: 'Anúncio enviado! Ele aparece na busca depois de uma revisão rápida.',
-  rascunho: 'Este anúncio ainda não foi publicado.',
-};
 
 export default function LoteDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -43,7 +37,7 @@ export default function LoteDetalhe() {
       ativo = false;
     };
   }, [id]);
-  // Recarrega ao voltar para a tela: o vendedor pode ter mudado as fotos.
+  // Recarrega ao voltar para a tela: o vendedor pode ter mudado os dados ou as fotos.
   useFocusEffect(carregar);
 
   if (!lote) {
@@ -72,7 +66,6 @@ export default function LoteDetalhe() {
 
   const categoria = CATEGORIA_ROTULO[lote.categoria];
   const souVendedor = sessao.usuario?.id === lote.vendedor.id;
-  const avisoStatus = souVendedor ? AVISO_DO_STATUS[lote.status] : undefined;
   const ficha: [string, string][] = [
     ['Categoria', categoria],
     ['Raça', lote.raca],
@@ -89,14 +82,7 @@ export default function LoteDetalhe() {
       <View style={estilos.coluna}>
         <GaleriaLote midias={lote.midias ?? []} categoria={categoria} titulo={lote.titulo} />
         <View style={estilos.conteudo}>
-          {avisoStatus && <Aviso>{avisoStatus}</Aviso>}
-          {souVendedor && (
-            <Botao
-              titulo="Fotos e vídeo do lote"
-              variante="secundario"
-              onPress={() => router.push({ pathname: '/lote/[id]/midias', params: { id: lote.id } })}
-            />
-          )}
+          {souVendedor && <PainelDoVendedor lote={lote} aoMudar={setLote} />}
           <Texto tipo="titulo">{lote.titulo}</Texto>
           <Texto tipo="destaque" cor="brand">
             {precoDoLote(lote)}
