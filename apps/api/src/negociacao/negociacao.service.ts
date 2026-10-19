@@ -10,9 +10,8 @@ import { and, count, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core';
 import {
   VALIDADE_PROPOSTA_HORAS,
-  comissao,
+  celularDeContato,
   dataEmbarqueValida,
-  mascararContato,
   resumoProposta,
   valorTotal,
   type ConversaDetalhe,
@@ -33,7 +32,7 @@ export const CONVERSA_NAO_ENCONTRADA = 'Conversa não encontrada.';
 export const PROPOSTA_NAO_ENCONTRADA = 'Proposta não encontrada.';
 export const LOTE_NAO_ENCONTRADO = 'Lote não encontrado';
 const LOTE_INDISPONIVEL = 'Este lote não está mais disponível para negociação.';
-const NEGOCIO_FECHADO = 'Negócio fechado! O próximo passo é o pagamento protegido, que chega em breve.';
+const NEGOCIO_FECHADO = 'Negócio fechado! Agora combinem o pagamento e o embarque direto entre vocês.';
 const OUTRO_COMPRADOR = 'O vendedor fechou negócio com outro comprador. Este lote não está mais disponível.';
 const PROPOSTA_RECUSADA = 'Proposta recusada.';
 const MENSAGENS_NO_DETALHE = 200;
@@ -168,10 +167,9 @@ export class NegociacaoService {
   async enviarMensagem(conversaId: string, usuarioId: string, texto: string): Promise<Mensagem> {
     const nova = await this.db.transaction(async (tx) => {
       await travarConversa(tx, conversaId, usuarioId);
-      const final = (await negocioFechado(tx, conversaId)) ? texto : mascararContato(texto).texto;
       const [m] = await tx
         .insert(mensagens)
-        .values({ conversaId, autorId: usuarioId, tipo: 'texto', texto: final })
+        .values({ conversaId, autorId: usuarioId, tipo: 'texto', texto })
         .returning();
       await tocar(tx, [conversaId]);
       return m;
@@ -201,8 +199,6 @@ export class NegociacaoService {
           .where(eq(propostas.id, aberta.id));
       }
 
-      let mensagem = dados.mensagem || null;
-      if (mensagem && !(await negocioFechado(tx, conversaId))) mensagem = mascararContato(mensagem).texto;
       const [proposta] = await tx
         .insert(propostas)
         .values({
@@ -216,7 +212,7 @@ export class NegociacaoService {
           quebraPercentual: dados.quebraPercentual,
           fretePorConta: dados.fretePorConta,
           dataEmbarque: dados.dataEmbarque,
-          mensagem,
+          mensagem: dados.mensagem || null,
           expiraEm: sql`now() + ${VALIDADE_PROPOSTA_HORAS} * interval '1 hour'`,
         })
         .returning();
@@ -239,7 +235,7 @@ export class NegociacaoService {
       if (lote.status !== 'ativo') throw new ConflictException({ mensagem: LOTE_INDISPONIVEL });
 
       const total = valorTotal(entradaValor(atual, lote.pesoMedioKg));
-      await tx.insert(pedidos).values({ propostaId, valorTotal: total, valorComissao: comissao(total).valorComissao });
+      await tx.insert(pedidos).values({ propostaId, valorTotal: total });
       await tx.update(propostas).set({ status: 'aceita', respondidaEm: sql`now()` }).where(eq(propostas.id, propostaId));
       await tx.update(lotes).set({ status: 'negociando' }).where(eq(lotes.id, lote.id));
       await avisar(tx, [proposta.conversaId], NEGOCIO_FECHADO);
@@ -361,7 +357,7 @@ export class NegociacaoService {
           id: conversa.id,
           papel,
           lote,
-          outraParte: paraParte(papel === 'comprador' ? v : c, Boolean(pedido)),
+          outraParte: paraParte(papel === 'comprador' ? v : c),
           ultimaMensagem: ultima
             ? {
                 texto:
@@ -397,16 +393,6 @@ async function travarPropostaAberta(tx: Tx, propostaId: string, acao: 'aceita' |
     throw new ConflictException({ mensagem: `Esta proposta não pode mais ser ${acao}.` });
   }
   return p;
-}
-
-async function negocioFechado(tx: Tx, conversaId: string): Promise<boolean> {
-  const [pedido] = await tx
-    .select({ id: pedidos.id })
-    .from(pedidos)
-    .innerJoin(propostas, eq(pedidos.propostaId, propostas.id))
-    .where(eq(propostas.conversaId, conversaId))
-    .limit(1);
-  return Boolean(pedido);
 }
 
 /** Marca atividade nas conversas (sobem na lista). */
@@ -493,16 +479,13 @@ function paraPedido(p: PedidoLinha): PedidoResumo {
     id: p.id,
     propostaId: p.propostaId,
     valorTotal: p.valorTotal,
-    valorComissao: p.valorComissao,
     status: p.status,
     criadoEm: p.criadoEm.toISOString(),
   };
 }
 
-/** O telefone só aparece com o negócio fechado. */
 function paraParte(
   u: Pick<typeof usuarios.$inferSelect, 'id' | 'nome' | 'verificado' | 'municipio' | 'uf' | 'telefone'>,
-  comContato: boolean,
 ): ParteNegociacao {
   return {
     id: u.id,
@@ -510,6 +493,6 @@ function paraParte(
     verificado: u.verificado,
     municipio: u.municipio ?? '',
     uf: u.uf ?? '',
-    ...(comContato ? { telefone: u.telefone } : {}),
+    telefone: celularDeContato(u.telefone),
   };
 }

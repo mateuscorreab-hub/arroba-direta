@@ -15,6 +15,7 @@ import { loteCriarSchema, loteFiltroSchema, type LoteCriar, type LoteFiltro } fr
 import { perfilCompleto, type Usuario } from '../auth/auth.service.js';
 import { AutenticadoGuard } from '../auth/autenticado.guard.js';
 import { UsuarioLogado } from '../auth/usuario-logado.decorator.js';
+import { idPipe } from '../comum/id.pipe.js';
 import { ZodPipe } from '../comum/zod.pipe.js';
 import { SoVendedorDoLote, VendedorDoLoteGuard } from '../midias/vendedor-do-lote.guard.js';
 import { LotesService } from './lotes.service.js';
@@ -47,6 +48,13 @@ export class LotesController {
   @Get(':id')
   obter(@Param('id', ParseUUIDPipe) id: string) {
     return this.lotes.obter(id);
+  }
+
+  /** O telefone fica fora do GET /lotes/:id, que é público: só quem fez login vê. */
+  @Get(':id/contato')
+  @UseGuards(AutenticadoGuard)
+  contato(@UsuarioLogado() usuario: Usuario, @Param('id', idPipe('Lote não encontrado')) id: string) {
+    return this.lotes.contato(id, usuario.id);
   }
 
   @Post()

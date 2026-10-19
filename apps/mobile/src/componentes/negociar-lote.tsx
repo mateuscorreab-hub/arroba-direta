@@ -5,6 +5,7 @@ import type { ConversaResumo, Lote } from '@arroba/shared';
 
 import { Aviso } from '@/componentes/aviso';
 import { Botao } from '@/componentes/botao';
+import { ContatoVendedor } from '@/componentes/contato-vendedor';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -50,21 +51,30 @@ export function NegociarLote({ lote }: { lote: Lote }) {
     conteudo = (
       <>
         <Texto cor="textSecondary">
-          Para conversar com o vendedor ou fazer uma proposta, entre com o número do seu celular.
+          Para ver o telefone do vendedor, conversar ou fazer uma proposta, entre com o número do seu celular.
         </Texto>
-        <Botao titulo="Conversar com o vendedor" onPress={irParaPerfil} />
-        <Botao titulo="Fazer proposta" variante="secundario" onPress={irParaPerfil} />
+        <Botao titulo="Ver telefone do vendedor" onPress={irParaPerfil} />
+        <Botao titulo="Conversar pelo app" variante="secundario" onPress={irParaPerfil} />
       </>
     );
   } else if (!usuario.perfilCompleto) {
     conteudo = (
       <>
-        <Aviso>Para negociar, complete seu perfil com nome, município e estado. O vendedor vê esses dados.</Aviso>
-        <Botao titulo="Completar perfil" onPress={irParaPerfil} />
+        <ContatoVendedor lote={lote} />
+        <Aviso>
+          Para conversar pelo app ou fazer uma proposta, complete seu perfil com nome, município e estado. O vendedor
+          vê esses dados e o seu celular.
+        </Aviso>
+        <Botao titulo="Completar perfil" variante="secundario" onPress={irParaPerfil} />
       </>
     );
   } else {
-    conteudo = <BotoesNegociar loteId={lote.id} />;
+    conteudo = (
+      <>
+        <ContatoVendedor lote={lote} />
+        <BotoesNegociar loteId={lote.id} />
+      </>
+    );
   }
 
   return <View style={estilos.bloco}>{conteudo}</View>;
@@ -94,7 +104,8 @@ function BotoesNegociar({ loteId }: { loteId: string }) {
     <>
       {erro ? <Aviso tipo="erro">{erro}</Aviso> : null}
       <Botao
-        titulo="Conversar com o vendedor"
+        titulo="Conversar pelo app"
+        variante="secundario"
         onPress={() => abrir('conversar')}
         carregando={ocupado === 'conversar'}
         desabilitado={ocupado !== null}
@@ -106,6 +117,9 @@ function BotoesNegociar({ loteId }: { loteId: string }) {
         carregando={ocupado === 'propor'}
         desabilitado={ocupado !== null}
       />
+      <Texto tipo="pequeno" cor="textSecondary">
+        Ao conversar pelo app, o vendedor vê seu nome, município e celular.
+      </Texto>
     </>
   );
 }

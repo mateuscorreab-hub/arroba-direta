@@ -16,7 +16,7 @@ import { codigosLogin, conversas, lotes, mensagens, pedidos, propostas, usuarios
 
 const PERFIL_INCOMPLETO = 'Complete seu perfil (nome, município e estado) antes de negociar.';
 const LOTE_INDISPONIVEL = 'Este lote não está mais disponível para negociação.';
-const NEGOCIO_FECHADO = 'Negócio fechado! O próximo passo é o pagamento protegido, que chega em breve.';
+const NEGOCIO_FECHADO = 'Negócio fechado! Agora combinem o pagamento e o embarque direto entre vocês.';
 const OUTRO_COMPRADOR = 'O vendedor fechou negócio com outro comprador. Este lote não está mais disponível.';
 
 const loteBase = {
@@ -163,7 +163,14 @@ describe('Negociação (e2e)', () => {
         uf: 'MS',
         status: 'ativo',
       },
-      outraParte: { id: vendedor.id, nome: 'Vendedor de Teste', verificado: false, municipio: 'Dourados', uf: 'MS' },
+      outraParte: {
+        id: vendedor.id,
+        nome: 'Vendedor de Teste',
+        verificado: false,
+        municipio: 'Dourados',
+        uf: 'MS',
+        telefone: vendedor.telefone,
+      },
       ultimaMensagem: null,
       naoLidas: 0,
       propostaAberta: null,
@@ -183,7 +190,7 @@ describe('Negociação (e2e)', () => {
       conversaId,
       autorId: comprador.id,
       tipo: 'texto',
-      texto: 'Me liga no [contato oculto] ou [contato oculto]. Pago R$ 2.600,00 nas 30 cabeças.',
+      texto: 'Me liga no (67) 99812-3456 ou joao.silva@fazenda.com.br. Pago R$ 2.600,00 nas 30 cabeças.',
       criadoEm: expect.any(String),
     });
 
@@ -198,7 +205,7 @@ describe('Negociação (e2e)', () => {
       quebraPercentual: 0,
       fretePorConta: 'comprador',
       dataEmbarque: dia(10),
-      mensagem: 'Fecho hoje. Zap [contato oculto]',
+      mensagem: 'Fecho hoje. Zap 67 99812 3456',
       status: 'enviada',
       expiraEm: expect.any(String),
       criadoEm: expect.any(String),
@@ -213,13 +220,12 @@ describe('Negociação (e2e)', () => {
     expect(lista.body.itens[0]).toMatchObject({
       id: conversaId,
       papel: 'vendedor',
-      outraParte: { id: comprador.id, nome: 'Comprador de Teste' },
+      outraParte: { id: comprador.id, nome: 'Comprador de Teste', telefone: comprador.telefone },
       naoLidas: 2,
       propostaAberta: { id: p1.body.id, status: 'enviada' },
       ultimaMensagem: { texto: resumoProposta({ preco: 2500, unidadePreco: 'cabeca' }) },
       negocioFechado: false,
     });
-    expect(lista.body.itens[0].outraParte).not.toHaveProperty('telefone');
 
     const p2 = await propor(vendedor, conversaId, { preco: 2800, fretePorConta: 'vendedor' }).expect(201);
     expect(p2.body).toMatchObject({ autorId: vendedor.id, status: 'enviada', valorEstimado: 84000 });
@@ -231,7 +237,7 @@ describe('Negociação (e2e)', () => {
     expect(propostaNa(detalhe, p2.body.id)?.status).toBe('enviada');
     expect(detalhe.propostaAberta?.id).toBe(p2.body.id);
     expect(detalhe.naoLidas).toBe(0);
-    expect(detalhe.outraParte).not.toHaveProperty('telefone');
+    expect(detalhe.outraParte.telefone).toBe(vendedor.telefone);
     const [respondida] = await db.select().from(propostas).where(eq(propostas.id, p1.body.id));
     expect(respondida.respondidaEm).not.toBeNull();
 
@@ -253,7 +259,6 @@ describe('Negociação (e2e)', () => {
         id: expect.any(String),
         propostaId: p2.body.id,
         valorTotal: 84000,
-        valorComissao: 1260,
         status: 'aguardando_pagamento',
       },
       naoLidas: 0,
@@ -267,10 +272,6 @@ describe('Negociação (e2e)', () => {
     const doVendedor = await ver(vendedor, conversaId).expect(200);
     expect(doVendedor.body.outraParte.telefone).toBe(comprador.telefone);
     expect(doVendedor.body.pedido.id).toBe(final.pedido?.id);
-
-    // Com o negócio fechado o contato pode circular.
-    const livre = await escrever(vendedor, conversaId, 'Meu número é (67) 99812-3456').expect(201);
-    expect(livre.body.texto).toBe('Meu número é (67) 99812-3456');
 
     const deNovo = await aceitar(comprador, p2.body.id).expect(409);
     expect(deNovo.body).toEqual({ mensagem: 'Esta proposta não pode mais ser aceita.' });
@@ -296,10 +297,23 @@ describe('Negociação (e2e)', () => {
     expect(p.body.valorEstimado).toBe(156364);
 
     const res = await aceitar(vendedor, p.body.id).expect(200);
-    expect(res.body.pedido).toMatchObject({ valorTotal: 156364, valorComissao: 2345.46 });
+    expect(res.body.pedido).toMatchObject({ valorTotal: 156364 });
     expect(res.body.outraParte.telefone).toBe(comprador.telefone);
     const [pedido] = await db.select().from(pedidos).where(eq(pedidos.propostaId, p.body.id));
-    expect(pedido).toMatchObject({ valorTotal: 156364, valorComissao: 2345.46, status: 'aguardando_pagamento' });
+    expect(pedido).toMatchObject({ valorTotal: 156364, status: 'aguardando_pagamento' });
+  });
+
+  it('vendedor de lote de exemplo aparece sem telefone na conversa', async () => {
+    const comprador = await pessoa('Comprador de Teste');
+    const [exemplo] = await db
+      .select({ id: lotes.id })
+      .from(lotes)
+      .innerJoin(usuarios, eq(lotes.vendedorId, usuarios.id))
+      .where(and(eq(usuarios.telefone, '+5520999990001'), eq(lotes.status, 'ativo')))
+      .limit(1);
+    expect(exemplo).toBeDefined();
+    const res = await abrir(comprador, exemplo.id).expect(200);
+    expect(res.body.outraParte).toMatchObject({ nome: 'João da Silva', telefone: null });
   });
 
   it('proposta por kg vivo', async () => {
@@ -309,7 +323,7 @@ describe('Negociação (e2e)', () => {
     // 390 kg x 10 x 98% = 3.822 kg x R$ 12,50
     expect(p.body.valorEstimado).toBe(47775);
     const res = await aceitar(comprador, p.body.id).expect(200);
-    expect(res.body.pedido).toMatchObject({ valorTotal: 47775, valorComissao: 716.63 });
+    expect(res.body.pedido).toMatchObject({ valorTotal: 47775 });
   });
 
   it('abrir a conversa de novo devolve a mesma, mesmo com o lote fora da busca', async () => {
@@ -467,7 +481,7 @@ describe('Negociação (e2e)', () => {
       expect(propostaNa(vista.body, propostaIds[i])?.status).toBe('expirada');
       expect(vista.body.mensagens.at(-1)).toMatchObject({ tipo: 'sistema', autorId: null, texto: OUTRO_COMPRADOR });
       expect(vista.body.negocioFechado).toBe(false);
-      expect(vista.body.outraParte).not.toHaveProperty('telefone');
+      expect(vista.body.outraParte.telefone).toBe(vendedor.telefone);
     }
     const curiosa = await ver(curioso, soConversa.body.id).expect(200);
     expect(curiosa.body.mensagens).toEqual([]);

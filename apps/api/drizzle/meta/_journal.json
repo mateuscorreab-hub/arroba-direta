@@ -29,6 +29,13 @@
       "when": 1792172935798,
       "tag": "0003_medical_black_tom",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792421320615,
+      "tag": "0004_fearless_colossus",
+      "breakpoints": true
     }
   ]
 }

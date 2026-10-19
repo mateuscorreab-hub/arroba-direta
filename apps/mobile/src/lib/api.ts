@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import {
   mensagemTamanho,
+  type ContatoVendedor,
   type ConversaDetalhe,
   type Entrar,
   type EnvioMidia,
@@ -166,6 +167,11 @@ export function obterEu() {
 
 export function atualizarPerfil(dados: Perfil) {
   return requisitar<Eu>('/eu', enviar('PATCH', dados), tokenAtual);
+}
+
+/** Nome e celular do vendedor; exige login e lote na busca. */
+export function obterContatoVendedor(loteId: string) {
+  return requisitar<ContatoVendedor>(`/lotes/${loteId}/contato`, undefined, tokenAtual);
 }
 
 /** Abre a conversa do usuário sobre o lote, ou devolve a que já existe. */

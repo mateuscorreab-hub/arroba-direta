@@ -1,77 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { formatarReais } from './calculos.js';
 import {
-  CONTATO_OCULTO,
   dataEmbarqueValida,
   hojeEmBrasilia,
-  mascararContato,
   mensagemCriarSchema,
   propostaCriarSchema,
   resumoProposta,
 } from './negociacao.js';
-
-describe('mascararContato', () => {
-  it.each([
-    ['(67) 99999-0001'],
-    ['67999990001'],
-    ['67 99999 0001'],
-    ['+55 67 99999-0001'],
-    ['+55 (67) 99999-0001'],
-    ['+5567999990001'],
-    ['067 99999-0001'],
-    ['67.99999.0001'],
-    ['6 7 9 9 9 9 9 0 0 0 1'],
-    ['9999-0001'],
-    ['(67) 3333-4444'],
-  ])('esconde o telefone %s', (telefone) => {
-    const r = mascararContato(`Me chama no zap ${telefone} que a gente acerta`);
-    expect(r).toEqual({ texto: `Me chama no zap ${CONTATO_OCULTO} que a gente acerta`, mascarado: true });
-  });
-
-  it.each([['joao.silva@gmail.com'], ['fazenda_boa-vista+gado@uol.com.br']])('esconde o e-mail %s', (email) => {
-    const r = mascararContato(`Manda para ${email}, por favor.`);
-    expect(r).toEqual({ texto: `Manda para ${CONTATO_OCULTO}, por favor.`, mascarado: true });
-  });
-
-  it('esconde telefone e e-mail na mesma mensagem e mantém o resto', () => {
-    const r = mascararContato('Pago R$ 2.600,00 por cabeça. Liga (67) 99999-0001 ou joao@gmail.com');
-    expect(r.texto).toBe(`Pago R$ 2.600,00 por cabeça. Liga ${CONTATO_OCULTO} ou ${CONTATO_OCULTO}`);
-    expect(r.mascarado).toBe(true);
-  });
-
-  it.each([
-    ['Fecho por R$ 2.600 - (67) 99999-0001 me chama', `Fecho por R$ 2.600 - ${CONTATO_OCULTO} me chama`],
-    ['R$ 310 (67) 99999-0001', `R$ 310 ${CONTATO_OCULTO}`],
-    ['R$ 2600 (67) 99999-0001', `R$ 2600 ${CONTATO_OCULTO}`],
-    ['R$ 2.600 + 67 99999-0001', `R$ 2.600 + ${CONTATO_OCULTO}`],
-    ['Pago R$ 2.500 (67) 99812-3456', `Pago R$ 2.500 ${CONTATO_OCULTO}`],
-    ['R$ 2.500. 67 99812-3456', `R$ 2.500. ${CONTATO_OCULTO}`],
-    ['valor R$ 2.600,00 (67) 99999-0001', `valor R$ 2.600,00 ${CONTATO_OCULTO}`],
-    ['R$67999990001', `R$${CONTATO_OCULTO}`],
-    ['me liga 67999990001,00', `me liga ${CONTATO_OCULTO},00`],
-    ['Liga 67 99812-3456 2.600,00 a cabeça', `Liga ${CONTATO_OCULTO} 2.600,00 a cabeça`],
-  ])('esconde o telefone junto de um preço: %s', (texto, esperado) => {
-    expect(mascararContato(texto)).toEqual({ texto: esperado, mascarado: true });
-  });
-
-  it.each([
-    ['R$ 2.600,00'],
-    ['R$2500'],
-    ['R$ 1250000'],
-    ['R$ 2.500 a R$ 2.700'],
-    ['310'],
-    ['120 cabeças'],
-    ['15/11/2026'],
-    ['dia 15 às 8h'],
-    ['R$ 310 a arroba, 120 cabeças de 450 kg, embarque 15/11/2026'],
-    ['Fecho tudo por R$ 12.500.000,00'],
-    ['Total de 12.500.000,00 reais'],
-    ['Embarque 15.11.2026 ou 16-11-2026'],
-    ['Quebra de 3%, frete por minha conta'],
-  ])('não mexe em %s', (texto) => {
-    expect(mascararContato(texto)).toEqual({ texto, mascarado: false });
-  });
-});
 
 describe('hojeEmBrasilia', () => {
   it('usa o horário de Brasília e não o UTC', () => {

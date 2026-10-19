@@ -19,10 +19,10 @@ São necessárias duas contas: a do vendedor e a do comprador. No navegador, use
 
 1. Suba a API com `APROVACAO_LOTES=automatica`, para o lote anunciado já entrar na busca (por exemplo, `APROVACAO_LOTES=automatica pnpm --filter @arroba/api dev`). Com `manual`, o padrão, o lote fica em análise e não aceita conversa. A versão de teste no Render já usa `automatica`.
 2. Na primeira janela, entre com um celular, complete o perfil e anuncie um lote na aba Anunciar (com pelo menos uma foto).
-3. Na outra janela, entre com outro celular, complete o perfil, abra o lote em Buscar e toque em "Conversar com o vendedor" ou "Fazer proposta".
+3. Na outra janela, entre com outro celular, complete o perfil, abra o lote em Buscar e toque em "Conversar pelo app" ou "Fazer proposta". O telefone do vendedor e o botão "Chamar no WhatsApp" aparecem logo acima.
 4. Volte à primeira janela: a conversa aparece na aba Conversas, com a proposta para aceitar, recusar ou responder com contraproposta.
 
-A conversa aberta se atualiza a cada 5 segundos, e a lista de conversas a cada 15 segundos. Telefones e e-mails escritos nas mensagens ficam ocultos até o negócio fechar; depois do aceite, cada lado vê o telefone do outro no topo da conversa.
+A conversa aberta se atualiza a cada 5 segundos, e a lista de conversas a cada 15 segundos. O topo da conversa mostra o telefone da outra parte e o link "Chamar no WhatsApp". Na tela do lote, só quem fez login vê o telefone do vendedor (`GET /lotes/:id/contato`).
 
 ## Fotos e vídeo
 

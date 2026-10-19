@@ -1,10 +1,21 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, count, desc, eq, ilike, lte, gte, sql, type SQL } from 'drizzle-orm';
-import { MIN_FOTOS_PUBLICAR, type Lote, type LoteCriar, type LoteFiltro, type Pagina } from '@arroba/shared';
+import {
+  MIN_FOTOS_PUBLICAR,
+  celularDeContato,
+  type ContatoVendedor,
+  type Lote,
+  type LoteCriar,
+  type LoteFiltro,
+  type Pagina,
+} from '@arroba/shared';
 import { DB, type Db } from '../db/db.module.js';
 import { lotes, midias, usuarios } from '../db/schema.js';
 import { MidiasService } from '../midias/midias.service.js';
 import { APROVACAO_LOTES, type AprovacaoLotes } from './aprovacao-lotes.js';
+
+// Os vendedores dos lotes de exemplo (seed) têm número de mentira, que não chama no WhatsApp.
+const SEM_TELEFONE = 'Este é um anúncio de exemplo, sem telefone de contato.';
 
 @Injectable()
 export class LotesService {
@@ -83,6 +94,22 @@ export class LotesService {
         .where(and(eq(lotes.id, id), eq(lotes.status, 'rascunho')));
     }
     return this.obter(id);
+  }
+
+  /** Telefone do vendedor para quem fez login. Só de lote na busca; o próprio vendedor vê sempre. */
+  async contato(id: string, usuarioId: string): Promise<ContatoVendedor> {
+    const [linha] = await this.db
+      .select({ status: lotes.status, vendedorId: lotes.vendedorId, nome: usuarios.nome, telefone: usuarios.telefone })
+      .from(lotes)
+      .innerJoin(usuarios, eq(lotes.vendedorId, usuarios.id))
+      .where(eq(lotes.id, id));
+    if (!linha) throw new NotFoundException({ mensagem: 'Lote não encontrado' });
+    if (linha.status !== 'ativo' && linha.vendedorId !== usuarioId) {
+      throw new ConflictException({ mensagem: 'Este lote não está mais disponível.' });
+    }
+    const telefone = celularDeContato(linha.telefone);
+    if (!telefone) throw new NotFoundException({ mensagem: SEM_TELEFONE });
+    return { nome: linha.nome ?? '', telefone };
   }
 
   /** Com APROVACAO_LOTES=automatica o lote publicado já entra na busca; senão espera a revisão. */

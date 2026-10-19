@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "Arroba Direta", template: "%s | Arroba Direta" },
   description:
-    "Compre e venda gado direto com outros pecuaristas, com pagamento protegido e documentação em dia.",
+    "Compre e venda gado direto com outros pecuaristas, com documentação em dia.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

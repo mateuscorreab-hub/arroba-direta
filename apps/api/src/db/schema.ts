@@ -222,9 +222,7 @@ export const pedidos = pgTable('pedidos', {
     .unique()
     .references(() => propostas.id),
   valorTotal: numeric('valor_total', { precision: 14, scale: 2, mode: 'number' }).notNull(),
-  valorComissao: numeric('valor_comissao', { precision: 14, scale: 2, mode: 'number' }).notNull(),
   status: statusPedidoEnum('status').notNull().default('aguardando_pagamento'),
-  pagamentoExternoId: text('pagamento_externo_id'), // id no provedor de pagamento
   criadoEm: criadoEm(),
 });
 
