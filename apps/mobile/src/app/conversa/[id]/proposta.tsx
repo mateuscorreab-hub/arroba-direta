@@ -10,6 +10,7 @@ import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ErroApi, obterConversa, textoDoErro } from '@/lib/api';
+import { motivoIndisponivel } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
 
 const irParaPerfil = () => router.dismissTo('/perfil');
@@ -110,7 +111,7 @@ function Proposta({ id, de, usuario }: { id: string; de: string | undefined; usu
         <Aviso>
           {conversa.negocioFechado
             ? 'O negócio desta conversa já foi fechado.'
-            : 'Este lote não está mais disponível para negociação.'}
+            : motivoIndisponivel(conversa.lote.status, conversa.papel)}
         </Aviso>
         <Botao titulo="Voltar para a conversa" onPress={() => voltarParaConversa(id)} />
       </>

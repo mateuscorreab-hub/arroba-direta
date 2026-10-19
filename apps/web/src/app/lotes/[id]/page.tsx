@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { CATEGORIA_ROTULO, VACINAS } from "@arroba/shared";
+import { CATEGORIA_ROTULO, VACINAS, type StatusLote } from "@arroba/shared";
 import { GaleriaLote } from "@/components/galeria-lote";
 import { SemFoto } from "@/components/sem-foto";
 import { ErroApi, obterLote } from "@/lib/api";
@@ -13,6 +13,15 @@ const VACINA_ROTULO: Record<(typeof VACINAS)[number], string> = {
   clostridioses: "Clostridioses",
   ibr_bvd: "IBR/BVD",
   leptospirose: "Leptospirose",
+};
+
+// Fora da busca o lote ainda abre por link (compartilhado antes, por exemplo); a página diz que não está à venda.
+const INDISPONIVEL: Partial<Record<StatusLote, string>> = {
+  vendido: "Este lote já foi vendido.",
+  negociando: "Este lote já tem negócio fechado.",
+  encerrado: "O vendedor pausou este anúncio. Ele pode voltar mais tarde.",
+  rascunho: "Este anúncio ainda não foi publicado.",
+  em_analise: "Este anúncio ainda está em revisão.",
 };
 
 async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
@@ -37,9 +46,15 @@ async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
   ];
 
   const midias = lote.midias ?? [];
+  const indisponivel = INDISPONIVEL[lote.status];
 
   return (
     <article className="space-y-6">
+      {indisponivel && (
+        <p role="status" className="rounded-xl border border-marca bg-cartao p-4 font-semibold">
+          {indisponivel}
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="min-w-0 lg:col-span-3">
           {midias.length > 0 ? (
@@ -82,10 +97,12 @@ async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
         <p className="text-sm text-suave">
           {lote.vendedor.municipio}/{lote.vendedor.uf}
         </p>
-        <p className="mt-3 text-sm">
-          Para ver o telefone do vendedor, conversar ou fazer uma proposta, entre no app Arroba
-          Direta com o número do seu celular.
-        </p>
+        {!indisponivel && (
+          <p className="mt-3 text-sm">
+            Para ver o telefone do vendedor, conversar ou fazer uma proposta, entre no app Arroba
+            Direta com o número do seu celular.
+          </p>
+        )}
       </div>
     </article>
   );

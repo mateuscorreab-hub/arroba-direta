@@ -11,6 +11,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { abrirPropostaAoCarregar } from '@/lib/abrir-proposta';
 import { abrirConversa, listarConversas, textoDoErro } from '@/lib/api';
+import { motivoIndisponivel } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
 
 // dismissTo volta às abas que já estão na pilha, em vez de empilhar outra cópia delas.
@@ -35,18 +36,10 @@ export function NegociarLote({ lote }: { lote: Lote }) {
       </>
     );
   } else if (usuario && usuario.id === lote.vendedor.id) {
-    conteudo = (
-      <>
-        <Aviso>
-          {lote.status === 'em_analise'
-            ? 'Este anúncio é seu. Ele está em revisão e ainda não aparece na busca.'
-            : 'Este anúncio é seu. As conversas com compradores ficam na aba Conversas.'}
-        </Aviso>
-        <Botao titulo="Ver conversas" variante="secundario" onPress={() => router.dismissTo('/conversas')} />
-      </>
-    );
+    // O vendedor cuida do anúncio no painel do alto da tela (PainelDoVendedor).
+    return null;
   } else if (lote.status !== 'ativo') {
-    conteudo = <LoteIndisponivel loteId={lote.id} usuarioId={usuario?.id} />;
+    conteudo = <LoteIndisponivel lote={lote} usuarioId={usuario?.id} />;
   } else if (!usuario) {
     conteudo = (
       <>
@@ -125,7 +118,8 @@ function BotoesNegociar({ loteId }: { loteId: string }) {
 }
 
 /** Lote fora de negociação: só dá para abrir a conversa que já existia. */
-function LoteIndisponivel({ loteId, usuarioId }: { loteId: string; usuarioId: string | undefined }) {
+function LoteIndisponivel({ lote, usuarioId }: { lote: Lote; usuarioId: string | undefined }) {
+  const loteId = lote.id;
   const [existente, setExistente] = useState<{ usuarioId: string; conversa: ConversaResumo | null } | null>(null);
 
   useEffect(() => {
@@ -145,7 +139,7 @@ function LoteIndisponivel({ loteId, usuarioId }: { loteId: string; usuarioId: st
   const conversa = existente && existente.usuarioId === usuarioId ? existente.conversa : null;
   return (
     <>
-      <Aviso>Este lote não está disponível para negociação no momento.</Aviso>
+      <Aviso>{motivoIndisponivel(lote.status)}</Aviso>
       {conversa && (
         <Botao
           titulo={conversa.negocioFechado ? 'Ver negócio fechado' : 'Abrir sua conversa'}

@@ -5,7 +5,7 @@ import { AuthService } from './auth/auth.service.js';
 import { lerModoEnvio, MODO_ENVIO } from './auth/modo-envio.js';
 import { DbModule } from './db/db.module.js';
 import { APROVACAO_LOTES, lerAprovacaoLotes } from './lotes/aprovacao-lotes.js';
-import { LotesController } from './lotes/lotes.controller.js';
+import { LotesController, MeusLotesController } from './lotes/lotes.controller.js';
 import { LotesService } from './lotes/lotes.service.js';
 import { ARMAZENAMENTO, type Armazenamento } from './midias/armazenamento.js';
 import { ArmazenamentoModule } from './midias/armazenamento.module.js';
@@ -32,6 +32,7 @@ import { SaudeController } from './saude/saude.controller.js';
     SaudeController,
     AuthController,
     LotesController,
+    MeusLotesController,
     MidiasController,
     EstadoMidiasController,
     MidiasLocalController,

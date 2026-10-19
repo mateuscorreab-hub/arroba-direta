@@ -11,7 +11,9 @@ Login de teste: na aba Perfil, digite qualquer celular válido com DDD e toque e
 
 Para ver o app no navegador, sem celular: `pnpm web` (a versão web usa uma barra de abas simples, em `src/app/(abas)/_layout.web.tsx`).
 
-Telas: `src/app/(abas)` (Buscar, Anunciar, Conversas, Perfil), `src/app/lote/[id]/index.tsx` (detalhe do lote, com a galeria e os botões de negociação), `src/app/lote/[id]/midias.tsx` (para mudar as fotos e o vídeo depois de publicar, só para o vendedor), `src/app/conversa/[id]/index.tsx` (conversa com mensagens e propostas) e `src/app/conversa/[id]/proposta.tsx` (formulário de proposta e contraproposta).
+Telas: `src/app/(abas)` (Buscar, Anunciar, Conversas, Perfil), `src/app/lote/[id]/index.tsx` (detalhe do lote, com a galeria e os botões de negociação), `src/app/lote/[id]/midias.tsx` (para mudar as fotos e o vídeo depois de publicar, só para o vendedor), `src/app/lote/[id]/editar.tsx` (editar o anúncio), `src/app/meus-anuncios.tsx` (os lotes de quem fez login, aberta pelo Perfil), `src/app/conversa/[id]/index.tsx` (conversa com mensagens e propostas) e `src/app/conversa/[id]/proposta.tsx` (formulário de proposta e contraproposta).
+
+O vendedor cuida do anúncio no painel do alto da tela do lote (`src/componentes/painel-vendedor.tsx`): editar, fotos e vídeo, pausar, reativar, publicar o rascunho e marcar como vendido, com confirmação na própria tela. Os campos do anúncio são os mesmos no Anunciar e no Editar (`src/componentes/campos-lote.tsx`).
 
 ## Testar a negociação
 
@@ -33,7 +35,7 @@ As fotos entram no próprio formulário de Anunciar, antes de publicar:
 1. Ao abrir, o app consulta `GET /midias/estado`. Com o envio ligado, o anúncio precisa de pelo menos uma foto (`MIN_FOTOS_PUBLICAR`, em `packages/shared/src/midias.ts`; mude lá para 0 se quiser deixar a foto opcional). O vídeo é opcional. Com o envio desligado, o formulário mostra a mensagem da API e publica sem foto.
 2. A pessoa escolhe as fotos e o vídeo; eles aparecem numa grade. A primeira foto é a capa ("Usar como capa" troca); "Tirar" tira da lista. Arquivo fora do limite aparece com o problema e não vai.
 3. Ao tocar "Publicar anúncio", o app cria o lote em rascunho (`POST /lotes?rascunho=1`, fora da busca), envia os arquivos na ordem da grade e chama `POST /lotes/:id/publicar`, que manda o lote para a revisão. Durante o envio os campos ficam travados, a tela fica ligada e a aba Anunciar pode ficar em segundo plano (troca de aba não para o envio).
-4. Se algum arquivo falhar por conexão, os outros continuam e o botão vira "Tentar enviar de novo": um toque manda de novo todos os que falharam e já publica. Arquivo recusado (com defeito ou fora do limite) precisa ser removido; com o rascunho criado, a pessoa ainda pode escolher outros arquivos, que vão para o mesmo lote. Os campos ficam travados (não há rota para editar o lote) e o formulário explica isso. Falha de rede ao criar ou publicar repete só o passo que faltou.
+4. Se algum arquivo falhar por conexão, os outros continuam e o botão vira "Tentar enviar de novo": um toque manda de novo todos os que falharam e já publica. Arquivo recusado (com defeito ou fora do limite) precisa ser removido; com o rascunho criado, a pessoa ainda pode escolher outros arquivos, que vão para o mesmo lote. Os campos ficam travados até terminar de publicar (o lote já existe; depois ele é editado em "Meus anúncios") e o formulário explica isso. Falha de rede ao criar ou publicar repete só o passo que faltou.
 5. Se o envio foi ligado na API depois que a aba abriu (o formulário achava que estava desligado), o 400 do `POST /lotes/:id/publicar` traz de volta os botões de foto.
 6. Depois de publicar, o app abre a página do lote, que mostra ao vendedor que o anúncio está em revisão (ele só aparece na busca depois).
 

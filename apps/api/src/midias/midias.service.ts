@@ -12,6 +12,7 @@ import { and, asc, eq, max, sql } from 'drizzle-orm';
 import {
   ENVIO_MIDIA_VALIDADE_MS,
   LIMITES_MIDIA,
+  LOTE_NAO_ALTERA,
   duracaoVideoAceita,
   mensagemTamanho,
   type EnvioMidia,
@@ -19,9 +20,10 @@ import {
   type Midia,
   type PedidoEnvioMidia,
   type RegistrarMidia,
+  type StatusLote,
   type TipoMidia,
 } from '@arroba/shared';
-import { DB, type Db } from '../db/db.module.js';
+import { DB, type Db, type Tx } from '../db/db.module.js';
 import { lotes, midias } from '../db/schema.js';
 import {
   ARMAZENAMENTO,
@@ -43,6 +45,12 @@ const mensagemLimite = (tipo: TipoMidia) =>
     : 'Este lote já tem um vídeo. Apague o atual para enviar outro.';
 
 const MENSAGEM_DESLIGADO = 'O envio de fotos e vídeos ainda não está ligado nesta versão.';
+
+/** Lote com negócio fechado ou vendido não muda mais de foto nem de vídeo. */
+function exigirAlteravel(status: StatusLote) {
+  const motivo = LOTE_NAO_ALTERA[status];
+  if (motivo) throw new ConflictException({ mensagem: motivo });
+}
 
 const envioInvalido = () => new BadRequestException({ mensagem: 'Envio inválido. Tente de novo.' });
 
@@ -85,9 +93,9 @@ export class MidiasService {
     return this.armazenamento;
   }
 
-  /** Quantas fotos (ou vídeos) o lote tem. */
-  async contar(loteId: string, tipo: TipoMidia): Promise<number> {
-    const [{ total }] = await this.db
+  /** Quantas fotos (ou vídeos) o lote tem. Dentro de uma transação, passe o `tx`. */
+  async contar(loteId: string, tipo: TipoMidia, db: Db | Tx = this.db): Promise<number> {
+    const [{ total }] = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(midias)
       .where(and(eq(midias.loteId, loteId), eq(midias.tipo, tipo)));
@@ -96,6 +104,8 @@ export class MidiasService {
 
   async pedirEnvio(loteId: string, { tipo, mime }: PedidoEnvioMidia): Promise<EnvioMidia> {
     const armazenamento = this.ligado();
+    const [lote] = await this.db.select({ status: lotes.status }).from(lotes).where(eq(lotes.id, loteId));
+    if (lote) exigirAlteravel(lote.status);
     if ((await this.contar(loteId, tipo)) >= LIMITES_MIDIA[tipo].maximo) {
       throw new ConflictException({ mensagem: mensagemLimite(tipo) });
     }
@@ -144,9 +154,11 @@ export class MidiasService {
 
     const resultado = await this.db.transaction(async (tx) => {
       // Lote travado: registros simultâneos são contados um de cada vez.
-      await tx.select({ id: lotes.id }).from(lotes).where(eq(lotes.id, loteId)).for('update');
+      const [lote] = await tx.select({ status: lotes.status }).from(lotes).where(eq(lotes.id, loteId)).for('update');
       const [mesma] = await tx.select().from(midias).where(eq(midias.publicId, r.publicId));
-      if (mesma) return mesma;
+      if (mesma) return { midia: mesma };
+      const bloqueio = LOTE_NAO_ALTERA[lote.status];
+      if (bloqueio) return { recusa: bloqueio };
       const [{ doTipo, ultima }] = await tx
         .select({
           doTipo: sql<number>`(count(*) filter (where ${midias.tipo} = ${r.tipo}))::int`,
@@ -154,7 +166,7 @@ export class MidiasService {
         })
         .from(midias)
         .where(eq(midias.loteId, loteId));
-      if (doTipo >= LIMITES_MIDIA[r.tipo].maximo) return null;
+      if (doTipo >= LIMITES_MIDIA[r.tipo].maximo) return { recusa: mensagemLimite(r.tipo) };
       const [nova] = await tx
         .insert(midias)
         .values({
@@ -171,20 +183,25 @@ export class MidiasService {
           bytes: dados.bytes,
         })
         .returning();
-      return nova;
+      return { midia: nova };
     });
-    if (!resultado) {
+    if ('recusa' in resultado) {
       await this.apagarDoArmazenamento(armazenamento, r.tipo, r.publicId);
-      throw new ConflictException({ mensagem: mensagemLimite(r.tipo) });
+      throw new ConflictException({ mensagem: resultado.recusa });
     }
-    return this.paraMidia(resultado);
+    return this.paraMidia(resultado.midia);
   }
 
   async apagar(loteId: string, midiaId: string): Promise<void> {
-    const [apagada] = await this.db
-      .delete(midias)
-      .where(and(eq(midias.id, midiaId), eq(midias.loteId, loteId)))
-      .returning();
+    const apagada = await this.db.transaction(async (tx) => {
+      const [lote] = await tx.select({ status: lotes.status }).from(lotes).where(eq(lotes.id, loteId)).for('update');
+      exigirAlteravel(lote.status);
+      const [linha] = await tx
+        .delete(midias)
+        .where(and(eq(midias.id, midiaId), eq(midias.loteId, loteId)))
+        .returning();
+      return linha;
+    });
     if (!apagada) throw new NotFoundException({ mensagem: 'Foto ou vídeo não encontrado.' });
     if (this.armazenamento?.nome === apagada.armazenamento) {
       await this.apagarDoArmazenamento(this.armazenamento, apagada.tipo, apagada.publicId);
@@ -195,7 +212,8 @@ export class MidiasService {
 
   async ordenar(loteId: string, ids: string[]): Promise<Midia[]> {
     await this.db.transaction(async (tx) => {
-      await tx.select({ id: lotes.id }).from(lotes).where(eq(lotes.id, loteId)).for('update');
+      const [lote] = await tx.select({ status: lotes.status }).from(lotes).where(eq(lotes.id, loteId)).for('update');
+      exigirAlteravel(lote.status);
       const atuais = await tx.select({ id: midias.id }).from(midias).where(eq(midias.loteId, loteId));
       if (atuais.length !== ids.length || !atuais.every((m) => ids.includes(m.id))) {
         throw new BadRequestException({

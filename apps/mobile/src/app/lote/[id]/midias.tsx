@@ -3,7 +3,7 @@ import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove, type NavigationAction } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { MAX_FOTOS_LOTE, MAX_VIDEOS_LOTE, type Lote, type Midia } from '@arroba/shared';
+import { LOTE_NAO_ALTERA, MAX_FOTOS_LOTE, MAX_VIDEOS_LOTE, type Lote, type Midia } from '@arroba/shared';
 
 import { Aviso } from '@/componentes/aviso';
 import { AvisoPermissao } from '@/componentes/aviso-permissao';
@@ -55,7 +55,8 @@ export default function MidiasDoLote() {
     };
   }, [id, versao]);
 
-  if (lote && sessao.usuario?.id === lote.vendedor.id) return <EditorMidias lote={lote} />;
+  const souVendedor = !!lote && sessao.usuario?.id === lote.vendedor.id;
+  if (lote && souVendedor && !LOTE_NAO_ALTERA[lote.status]) return <EditorMidias lote={lote} />;
 
   let conteudo;
   if (sessao.carregando || (!lote && !erro)) {
@@ -79,6 +80,14 @@ export default function MidiasDoLote() {
       <>
         <Texto cor="textSecondary">Para mudar as fotos e o vídeo, entre com o celular de quem anunciou o lote.</Texto>
         <Botao titulo="Entrar com celular" onPress={() => router.navigate('/perfil')} />
+      </>
+    );
+  } else if (souVendedor) {
+    // Negócio fechado ou vendido: a foto que o comprador viu não muda mais.
+    conteudo = (
+      <>
+        <Aviso>{LOTE_NAO_ALTERA[lote.status]}</Aviso>
+        <Botao titulo="Ver o lote" variante="secundario" onPress={() => verLote(lote.id)} />
       </>
     );
   } else {

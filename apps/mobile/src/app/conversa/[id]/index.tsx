@@ -36,7 +36,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { consumirAbrirProposta } from '@/lib/abrir-proposta';
 import { ErroApi, aceitarProposta, enviarMensagem, obterConversa, recusarProposta, textoDoErro } from '@/lib/api';
 import { DICA_SEGURANCA } from '@/lib/contato';
-import { cabecas, precoDoLote } from '@/lib/formato';
+import { cabecas, motivoIndisponivel, precoDoLote } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
 
 const ATUALIZAR_A_CADA_MS = 5_000;
@@ -205,7 +205,7 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
             )
           ) : (
             !tecladoAberto &&
-            lote.status !== 'ativo' && <Aviso>Este lote não está mais disponível para negociação.</Aviso>
+            lote.status !== 'ativo' && <Aviso>{motivoIndisponivel(lote.status, conversa.papel)}</Aviso>
           )}
         </View>
 

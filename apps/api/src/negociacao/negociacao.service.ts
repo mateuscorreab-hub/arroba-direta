@@ -25,7 +25,7 @@ import {
   type PropostaCriar,
   type PropostaNegociacao,
 } from '@arroba/shared';
-import { DB, type Db } from '../db/db.module.js';
+import { DB, type Db, type Tx } from '../db/db.module.js';
 import { conversas, lotes, mensagens, pedidos, propostas, usuarios } from '../db/schema.js';
 
 export const CONVERSA_NAO_ENCONTRADA = 'Conversa não encontrada.';
@@ -38,7 +38,6 @@ const PROPOSTA_RECUSADA = 'Proposta recusada.';
 const MENSAGENS_NO_DETALHE = 200;
 const VALOR_TOTAL_MAX = 999_999_999_999.99; // limite de pedidos.valor_total numeric(14,2)
 
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type PropostaLinha = typeof propostas.$inferSelect;
 type MensagemLinha = typeof mensagens.$inferSelect;
 type PedidoLinha = typeof pedidos.$inferSelect;
@@ -156,7 +155,7 @@ export class NegociacaoService {
         : Promise.resolve([]),
     ]);
     const agora = Date.now();
-    const porId = new Map(citadas.map((p) => [p.id, paraProposta(p, resumo.lote.pesoMedioKg, agora)]));
+    const porId = new Map(citadas.map((p) => [p.id, paraProposta(p, agora, resumo.lote.pesoMedioKg)]));
     return {
       ...resumo,
       mensagens: recentes.reverse().map((m) => paraMensagem(m, m.propostaId ? porId.get(m.propostaId) : undefined)),
@@ -179,7 +178,7 @@ export class NegociacaoService {
 
   async enviarProposta(conversaId: string, usuarioId: string, dados: PropostaCriar): Promise<PropostaNegociacao> {
     const conversa = await this.conversaDoParticipante(conversaId, usuarioId);
-    const { nova, pesoMedioKg } = await this.db.transaction(async (tx) => {
+    const nova = await this.db.transaction(async (tx) => {
       const [lote] = await tx.select().from(lotes).where(eq(lotes.id, conversa.loteId)).for('share');
       if (lote.status !== 'ativo') throw new ConflictException({ mensagem: LOTE_INDISPONIVEL });
       validarNoLote(dados, lote);
@@ -210,6 +209,7 @@ export class NegociacaoService {
           unidadePreco: dados.unidadePreco,
           quantidade: dados.quantidade,
           quebraPercentual: dados.quebraPercentual,
+          pesoMedioKg: lote.pesoMedioKg,
           fretePorConta: dados.fretePorConta,
           dataEmbarque: dados.dataEmbarque,
           mensagem: dados.mensagem || null,
@@ -218,9 +218,9 @@ export class NegociacaoService {
         .returning();
       await tx.insert(mensagens).values({ conversaId, autorId: usuarioId, tipo: 'proposta', propostaId: proposta.id });
       await tocar(tx, [conversaId]);
-      return { nova: proposta, pesoMedioKg: lote.pesoMedioKg };
+      return proposta;
     });
-    return paraProposta(nova, pesoMedioKg, Date.now());
+    return paraProposta(nova, Date.now());
   }
 
   async aceitar(propostaId: string, usuarioId: string): Promise<ConversaDetalhe> {
@@ -234,7 +234,9 @@ export class NegociacaoService {
       const atual = await travarPropostaAberta(tx, propostaId, 'aceita');
       if (lote.status !== 'ativo') throw new ConflictException({ mensagem: LOTE_INDISPONIVEL });
 
-      const total = valorTotal(entradaValor(atual, lote.pesoMedioKg));
+      // O peso gravado na proposta: editar o peso do lote encerra as propostas abertas, então é o mesmo de agora.
+      // Proposta sem peso gravado (feita pela versão anterior durante a troca no Render) usa o do lote.
+      const total = valorTotal(entradaValor(atual, atual.pesoMedioKg ?? lote.pesoMedioKg));
       await tx.insert(pedidos).values({ propostaId, valorTotal: total });
       await tx.update(propostas).set({ status: 'aceita', respondidaEm: sql`now()` }).where(eq(propostas.id, propostaId));
       await tx.update(lotes).set({ status: 'negociando' }).where(eq(lotes.id, lote.id));
@@ -368,7 +370,7 @@ export class NegociacaoService {
               }
             : null,
           naoLidas: naoLidasPor.get(conversa.id) ?? 0,
-          propostaAberta: aberta && !vencida(aberta, agora) ? paraProposta(aberta, lote.pesoMedioKg, agora) : null,
+          propostaAberta: aberta && !vencida(aberta, agora) ? paraProposta(aberta, agora, lote.pesoMedioKg) : null,
           negocioFechado: Boolean(pedido),
           atualizadoEm: conversa.atualizadoEm.toISOString(),
         },
@@ -400,10 +402,27 @@ async function tocar(tx: Tx, conversaIds: string[]) {
   await tx.update(conversas).set({ atualizadoEm: sql`now()` }).where(inArray(conversas.id, conversaIds));
 }
 
-async function avisar(tx: Tx, conversaIds: string[], texto: string) {
+/** Aviso do sistema nas conversas. Com `causadoPor`, o aviso não conta como novo para quem o causou. */
+async function avisar(tx: Tx, conversaIds: string[], texto: string, causadoPor: string | null = null) {
   if (conversaIds.length === 0) return;
-  await tx.insert(mensagens).values(conversaIds.map((conversaId) => ({ conversaId, tipo: 'sistema' as const, texto })));
+  await tx
+    .insert(mensagens)
+    .values(conversaIds.map((conversaId) => ({ conversaId, autorId: causadoPor, tipo: 'sistema' as const, texto })));
   await tocar(tx, conversaIds);
+}
+
+/**
+ * O vendedor mudou o lote (editou, pausou, reativou, vendeu): a proposta em aberto vence, porque foi feita
+ * sobre o lote de antes, e todas as conversas do lote recebem o aviso, que não aparece como novo para o
+ * próprio vendedor. Quem chama já travou o lote (FOR UPDATE).
+ */
+export async function avisarMudancaNoLote(tx: Tx, loteId: string, vendedorId: string, texto: string) {
+  await tx
+    .update(propostas)
+    .set({ status: 'expirada' })
+    .where(and(eq(propostas.loteId, loteId), eq(propostas.status, 'enviada')));
+  const doLote = await tx.select({ id: conversas.id }).from(conversas).where(eq(conversas.loteId, loteId));
+  await avisar(tx, doLote.map((c) => c.id), texto, vendedorId);
 }
 
 /** Quantidade, peso, valor total e data que dependem do lote; os outros campos o schema já validou. */
@@ -442,7 +461,9 @@ function entradaValor(
   };
 }
 
-function paraProposta(p: PropostaLinha, pesoMedioKg: number | null, agora: number): PropostaNegociacao {
+/** `pesoDoLote` só vale para proposta sem peso gravado, feita antes da coluna existir. */
+function paraProposta(p: PropostaLinha, agora: number, pesoDoLote: number | null = null): PropostaNegociacao {
+  const peso = p.pesoMedioKg ?? pesoDoLote;
   return {
     id: p.id,
     conversaId: p.conversaId,
@@ -457,8 +478,8 @@ function paraProposta(p: PropostaLinha, pesoMedioKg: number | null, agora: numbe
     status: vencida(p, agora) ? 'expirada' : p.status,
     expiraEm: p.expiraEm.toISOString(),
     criadoEm: p.criadoEm.toISOString(),
-    // Sem peso médio só existe proposta por cabeça; o 0 só protege a lista de um lote alterado.
-    valorEstimado: p.unidadePreco === 'cabeca' || pesoMedioKg ? valorTotal(entradaValor(p, pesoMedioKg)) : 0,
+    // Com o peso de quando foi feita. Sem peso só existe proposta por cabeça; o 0 só protege de um dado torto.
+    valorEstimado: p.unidadePreco === 'cabeca' || peso ? valorTotal(entradaValor(p, peso)) : 0,
   };
 }
 

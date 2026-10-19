@@ -15,6 +15,7 @@ import {
   type Pagina,
   type PedidoEnvioMidia,
   type Perfil,
+  type RegrasAnuncio,
   type PropostaCriar,
   type PropostaNegociacao,
   type RegistrarMidia,
@@ -146,6 +147,33 @@ export function criarLote(dados: LoteCriar, opcoes: { rascunho?: boolean } = {})
 /** Tira o lote do rascunho e manda para a revisão. Repetir não faz mal: o lote já publicado volta como está. */
 export function publicarLote(id: string) {
   return requisitar<Lote>(`/lotes/${id}/publicar`, enviar('POST'), tokenAtual);
+}
+
+export function obterRegrasAnuncio() {
+  return requisitar<RegrasAnuncio>('/lotes/regras');
+}
+
+/** Os lotes de quem fez login, em qualquer situação ("Meus anúncios"). */
+export function listarMeusLotes() {
+  return requisitar<Lote[]>('/eu/lotes', undefined, tokenAtual);
+}
+
+/** Manda o anúncio inteiro: o campo opcional que faltar fica em branco. */
+export function editarLote(id: string, dados: LoteCriar) {
+  return requisitar<Lote>(`/lotes/${id}`, enviar('PUT', dados), tokenAtual);
+}
+
+/** Pausar, reativar e vender: repetir não faz mal, o lote que já mudou volta como está. */
+export function pausarLote(id: string) {
+  return requisitar<Lote>(`/lotes/${id}/pausar`, enviar('POST'), tokenAtual);
+}
+
+export function reativarLote(id: string) {
+  return requisitar<Lote>(`/lotes/${id}/reativar`, enviar('POST'), tokenAtual);
+}
+
+export function marcarLoteVendido(id: string) {
+  return requisitar<Lote>(`/lotes/${id}/vendido`, enviar('POST'), tokenAtual);
 }
 
 export function solicitarCodigo(dados: SolicitarCodigo) {
