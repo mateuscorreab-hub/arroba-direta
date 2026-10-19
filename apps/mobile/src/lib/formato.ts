@@ -3,6 +3,7 @@ import {
   UNIDADE_PRECO_ROTULO,
   formatarReais,
   type Lote,
+  type StatusLote,
   type UnidadePreco,
   type UnidadeProposta,
 } from '@arroba/shared';
@@ -15,6 +16,13 @@ export function precoDoLote(l: { unidadePreco: UnidadePreco; preco?: number | nu
 
 export function precoDaProposta(p: { preco: number; unidadePreco: UnidadeProposta }): string {
   return `${formatarReais(p.preco)} ${UNIDADE_PRECO_ROTULO[p.unidadePreco]}`;
+}
+
+/** Para quem quer comprar: por que o lote fora da busca não aceita conversa nova nem proposta. */
+export function motivoIndisponivel(status: StatusLote): string {
+  if (status === 'vendido') return 'Este lote já foi vendido.';
+  if (status === 'encerrado') return 'O vendedor pausou este anúncio. Por enquanto não dá para fazer propostas.';
+  return 'Este lote não está mais disponível para negociação.';
 }
 
 export function cabecas(n: number): string {

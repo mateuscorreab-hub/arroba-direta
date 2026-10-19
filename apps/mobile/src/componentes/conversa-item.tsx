@@ -14,6 +14,8 @@ function situacao(c: ConversaResumo, meuId: string): { texto: string; cor: Theme
       ? { texto: `Proposta aguardando ${c.outraParte.nome}`, cor: 'textSecondary' }
       : { texto: 'Proposta aguardando você', cor: 'brand' };
   }
+  if (c.lote.status === 'vendido') return { texto: 'Lote vendido', cor: 'textSecondary' };
+  if (c.lote.status === 'encerrado') return { texto: 'Anúncio pausado', cor: 'textSecondary' };
   if (c.lote.status !== 'ativo') return { texto: 'Lote indisponível', cor: 'textSecondary' };
   return null;
 }

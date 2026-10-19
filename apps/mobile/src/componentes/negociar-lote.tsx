@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import type { ConversaResumo, Lote, StatusLote } from '@arroba/shared';
+import type { ConversaResumo, Lote } from '@arroba/shared';
 
 import { Aviso } from '@/componentes/aviso';
 import { Botao } from '@/componentes/botao';
@@ -11,6 +11,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { abrirPropostaAoCarregar } from '@/lib/abrir-proposta';
 import { abrirConversa, listarConversas, textoDoErro } from '@/lib/api';
+import { motivoIndisponivel } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
 
 // dismissTo volta às abas que já estão na pilha, em vez de empilhar outra cópia delas.
@@ -116,11 +117,6 @@ function BotoesNegociar({ loteId }: { loteId: string }) {
   );
 }
 
-const POR_QUE_INDISPONIVEL: Partial<Record<StatusLote, string>> = {
-  vendido: 'Este lote já foi vendido.',
-  encerrado: 'O vendedor pausou este anúncio. Ele pode voltar mais tarde.',
-};
-
 /** Lote fora de negociação: só dá para abrir a conversa que já existia. */
 function LoteIndisponivel({ lote, usuarioId }: { lote: Lote; usuarioId: string | undefined }) {
   const loteId = lote.id;
@@ -143,7 +139,7 @@ function LoteIndisponivel({ lote, usuarioId }: { lote: Lote; usuarioId: string |
   const conversa = existente && existente.usuarioId === usuarioId ? existente.conversa : null;
   return (
     <>
-      <Aviso>{POR_QUE_INDISPONIVEL[lote.status] ?? 'Este lote não está disponível para negociação no momento.'}</Aviso>
+      <Aviso>{motivoIndisponivel(lote.status)}</Aviso>
       {conversa && (
         <Botao
           titulo={conversa.negocioFechado ? 'Ver negócio fechado' : 'Abrir sua conversa'}
