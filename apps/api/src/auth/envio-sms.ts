@@ -7,11 +7,11 @@ export interface EnvioSms {
 export const ENVIO_SMS = Symbol('ENVIO_SMS');
 
 /**
- * Com "ó" e "ã" o SMS vai em Unicode, que cabe 70 caracteres por mensagem, e cada parte a mais é
- * cobrada. Este texto tem menos de 70: uma mensagem só.
+ * Sem acento, como costuma ser SMS no Brasil: com acento a mensagem vai em Unicode, que nem toda
+ * operadora mostra direito e cabe menos texto por crédito. Curto: um crédito só.
  */
 export function textoDoSms(codigo: string): string {
-  return `Arroba Direta: seu código é ${codigo}. Não passe para ninguém.`;
+  return `Arroba Direta: seu codigo de acesso e ${codigo}. Nao passe para ninguem.`;
 }
 
 /** Final do número, para o log: dá para achar a pessoa sem gravar o telefone inteiro. */

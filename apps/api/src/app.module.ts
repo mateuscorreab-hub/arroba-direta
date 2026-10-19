@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthService } from './auth/auth.service.js';
-import { CONFIG_ENVIO, lerConfigEnvio } from './auth/config-envio.js';
+import { EnvioComtele } from './auth/comtele.js';
+import { CONFIG_ENVIO, lerConfigEnvio, type ConfigEnvio } from './auth/config-envio.js';
 import { ENVIO_SMS } from './auth/envio-sms.js';
 import { DbModule } from './db/db.module.js';
 import { APROVACAO_LOTES, lerAprovacaoLotes } from './lotes/aprovacao-lotes.js';
@@ -42,8 +43,11 @@ import { SaudeController } from './saude/saude.controller.js';
   providers: [
     // Lidos ao subir: com CODIGO_MODO ou APROVACAO_LOTES inválido a API não inicia.
     { provide: CONFIG_ENVIO, useFactory: () => lerConfigEnvio() },
-    // O serviço de SMS entra no próximo passo; até lá CODIGO_MODO=sms não manda nada.
-    { provide: ENVIO_SMS, useValue: null },
+    {
+      provide: ENVIO_SMS,
+      inject: [CONFIG_ENVIO],
+      useFactory: (c: ConfigEnvio) => (c.modo === 'sms' ? new EnvioComtele(c.comtele) : null),
+    },
     { provide: APROVACAO_LOTES, useFactory: () => lerAprovacaoLotes() },
     AuthService,
     LotesService,

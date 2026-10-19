@@ -28,6 +28,8 @@ export interface SessaoAtual {
 }
 
 const PEDIDOS_POR_HORA = 5;
+/** Com SMS: por número em 24 horas, para ninguém usar o app para encher de SMS o celular de outra pessoa. */
+const PEDIDOS_POR_DIA = 10;
 /** Por conexão (IPv6: por bloco /64), só com SMS. Folgado para várias pessoas atrás do mesmo IP da operadora. */
 const PEDIDOS_POR_IP_HORA = 20;
 const TENTATIVAS_POR_CODIGO = 5;
@@ -46,6 +48,7 @@ export class AuthService {
     const codigo = randomInt(10 ** CODIGO_DIGITOS).toString().padStart(CODIGO_DIGITOS, '0');
     const porSms = this.envio.modo === 'sms';
     const ultimaHora = sql`now() - interval '1 hour'`;
+    const ultimoDia = sql`now() - interval '1 day'`;
     const resultado = await this.db.transaction(async (tx) => {
       // Uma fila só para os pedidos de código: com pedidos simultâneos os limites não furam.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext('codigos_login'))`);
@@ -58,10 +61,13 @@ export class AuthService {
       // Cada SMS custa: os limites por conexão e por dia seguram quem dispara códigos para números
       // aleatórios (fraude de SMS) ou um erro no app que peça sem parar.
       if (porSms) {
+        if ((await contar(eq(codigosLogin.telefone, telefone), gt(codigosLogin.criadoEm, ultimoDia))) >= PEDIDOS_POR_DIA) {
+          return 'telefone' as const;
+        }
         if (ip && (await contar(eq(codigosLogin.ip, ip), gt(codigosLogin.criadoEm, ultimaHora))) >= PEDIDOS_POR_IP_HORA) {
           return 'conexao' as const;
         }
-        const noDia = await contar(eq(codigosLogin.porSms, true), gt(codigosLogin.criadoEm, sql`now() - interval '1 day'`));
+        const noDia = await contar(eq(codigosLogin.porSms, true), gt(codigosLogin.criadoEm, ultimoDia));
         if (noDia >= this.envio.limiteDiario) return 'dia' as const;
       }
       const [novo] = await tx
