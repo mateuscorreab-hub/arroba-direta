@@ -97,7 +97,7 @@ export function CartaoProposta({
           <Texto>
             {`Aceitar esta proposta? O negócio fica fechado nestes termos (${cabecas(p.quantidade)} a ` +
               `${precoDaProposta(p)}, valor estimado de ${formatarReais(p.valorEstimado)}) ` +
-              'e o telefone de vocês dois é liberado.'}
+              'e o lote sai da busca.'}
           </Texto>
           <Botao titulo="Sim, aceitar" onPress={() => responder(aoAceitar)} carregando={ocupado} />
           <Botao titulo="Voltar" variante="discreto" onPress={() => setConfirmando(null)} desabilitado={ocupado} />

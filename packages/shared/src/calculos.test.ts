@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { comissao, distanciaKm, kgParaArroba, valorTotal } from './calculos.js';
+import { distanciaKm, kgParaArroba, valorTotal } from './calculos.js';
 import { loteCriarSchema } from './schemas.js';
 
 describe('valorTotal', () => {
@@ -21,12 +21,6 @@ describe('valorTotal', () => {
 
   it('exige peso para preço por kg', () => {
     expect(() => valorTotal({ unidade: 'kg', preco: 14, quantidade: 10 })).toThrow();
-  });
-});
-
-describe('comissao', () => {
-  it('desconta 1,5% por padrão', () => {
-    expect(comissao(250000)).toEqual({ valorComissao: 3750, valorVendedor: 246250 });
   });
 });
 

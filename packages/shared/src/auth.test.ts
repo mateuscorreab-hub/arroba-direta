@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entrarSchema, formatarTelefone, normalizarTelefone, perfilSchema } from './auth.js';
+import { entrarSchema, formatarTelefone, linkWhatsApp, normalizarTelefone, perfilSchema } from './auth.js';
 
 describe('normalizarTelefone', () => {
   it.each([
@@ -29,6 +29,15 @@ describe('normalizarTelefone', () => {
 describe('formatarTelefone', () => {
   it('formata para exibir', () => {
     expect(formatarTelefone('+5567999990001')).toBe('(67) 99999-0001');
+  });
+});
+
+describe('linkWhatsApp', () => {
+  it('usa só os dígitos e escreve a mensagem', () => {
+    expect(linkWhatsApp('+5567999990001')).toBe('https://wa.me/5567999990001');
+    expect(linkWhatsApp('+5567999990001', 'Olá! Vi seu lote "25 novilhas" & quero saber mais')).toBe(
+      'https://wa.me/5567999990001?text=Ol%C3%A1!%20Vi%20seu%20lote%20%2225%20novilhas%22%20%26%20quero%20saber%20mais',
+    );
   });
 });
 

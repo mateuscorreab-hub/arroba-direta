@@ -39,40 +39,6 @@ export type PapelNegociacao = 'comprador' | 'vendedor';
 export const VALIDADE_PROPOSTA_HORAS = 72;
 export const MENSAGEM_MAX = 2000;
 
-export const CONTATO_OCULTO = '[contato oculto]';
-
-const EMAIL = /[\w.%+-]+@[\w-]+(?:\.[\w-]+)+/g;
-// 8 ou mais dígitos, com espaços, pontos, hífens, parênteses ou "+" entre eles.
-const TELEFONE = /[+(]*\d(?:[\s.()+-]*\d){7,}/g;
-const DATA_COM_PONTO_OU_HIFEN = /^(0[1-9]|[12]\d|3[01])[.-](0[1-9]|1[0-2])[.-]20\d\d$/;
-// Preço escrito como preço ("R$ 2.600", "R$ 310,50", "12.500.000,00"): fica fora da busca por telefone.
-// Sem lookbehind, que o Safari antigo não aceita.
-const PRECO =
-  /(R\$\s*(?:\d{1,3}(?:\.\d{3}){1,2}|\d{1,7})(?:,\d{2})?(?!\d|[.,]\d)|(?:^|[^\d.,])\d{1,3}(?:\.\d{3}){1,2},\d{2}(?!\d|[.,]\d))/;
-
-/**
- * Esconde telefones e e-mails para o negócio não sair do app antes de fechar.
- * Preços ("R$ 2.600,00", "R$ 12.500.000,00"), quantidades e datas ficam como estão.
- */
-export function mascararContato(texto: string): { texto: string; mascarado: boolean } {
-  let mascarado = false;
-  const ocultar = () => {
-    mascarado = true;
-    return CONTATO_OCULTO;
-  };
-  // No split com grupo, os preços ficam nas posições ímpares e não passam pela máscara.
-  const resultado = texto
-    .replace(EMAIL, ocultar)
-    .split(PRECO)
-    .map((parte, i) =>
-      i % 2 === 1
-        ? parte
-        : parte.replace(TELEFONE, (trecho) => (DATA_COM_PONTO_OU_HIFEN.test(trecho) ? trecho : ocultar())),
-    )
-    .join('');
-  return { texto: resultado, mascarado };
-}
-
 /** Data de hoje (YYYY-MM-DD) no horário de Brasília. */
 export function hojeEmBrasilia(agora = new Date()): string {
   try {
@@ -148,8 +114,13 @@ export interface ParteNegociacao {
   verificado: boolean;
   municipio: string;
   uf: string;
-  /** Só vem depois que o negócio fecha. */
-  telefone?: string;
+  telefone: string;
+}
+
+/** GET /lotes/:id/contato: o telefone do vendedor, para quem fez login. */
+export interface ContatoVendedor {
+  nome: string;
+  telefone: string;
 }
 
 export interface LoteResumo {
@@ -202,7 +173,6 @@ export interface PedidoResumo {
   id: string;
   propostaId: string;
   valorTotal: number;
-  valorComissao: number;
   status: StatusPedido;
   criadoEm: string;
 }

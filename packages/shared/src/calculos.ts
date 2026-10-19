@@ -46,14 +46,6 @@ export function valorTotal(e: EntradaValorTotal): number {
   return centavos(e.preco * unidades);
 }
 
-/** Taxa padrão cobrada do vendedor (1,5%). Ajustável por negociação/região. */
-export const TAXA_COMISSAO_PADRAO = 0.015;
-
-export function comissao(valor: number, taxa = TAXA_COMISSAO_PADRAO) {
-  const valorComissao = centavos(valor * taxa);
-  return { valorComissao, valorVendedor: centavos(valor - valorComissao) };
-}
-
 /** Distância em km entre dois pontos (fórmula de haversine). */
 export function distanciaKm(
   a: { lat: number; lng: number },

@@ -29,6 +29,12 @@ export function formatarTelefone(e164: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
+/** Link que abre a conversa no WhatsApp com o número, já com a mensagem escrita se houver. */
+export function linkWhatsApp(e164: string, mensagem?: string): string {
+  const link = `https://wa.me/${e164.replace(/\D/g, '')}`;
+  return mensagem ? `${link}?text=${encodeURIComponent(mensagem)}` : link;
+}
+
 export const telefoneSchema = z
   .string()
   .transform((v, ctx) => {

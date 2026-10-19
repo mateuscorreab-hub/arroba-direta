@@ -83,8 +83,8 @@ async function Detalhe({ params }: { params: Promise<{ id: string }> }) {
           {lote.vendedor.municipio}/{lote.vendedor.uf}
         </p>
         <p className="mt-3 text-sm">
-          Para fazer uma proposta, baixe o app Arroba Direta. O pagamento fica protegido até a
-          entrega do gado.
+          Para ver o telefone do vendedor, conversar ou fazer uma proposta, entre no app Arroba
+          Direta com o número do seu celular.
         </p>
       </div>
     </article>

@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  CONTATO_OCULTO,
   MENSAGEM_MAX,
   formatarReais,
   formatarTelefone,
@@ -36,6 +35,7 @@ import { useDadosEmFoco } from '@/hooks/use-dados-em-foco';
 import { useTheme } from '@/hooks/use-theme';
 import { consumirAbrirProposta } from '@/lib/abrir-proposta';
 import { ErroApi, aceitarProposta, enviarMensagem, obterConversa, recusarProposta, textoDoErro } from '@/lib/api';
+import { DICA_SEGURANCA, abrirLink, whatsAppDoLote } from '@/lib/contato';
 import { cabecas, precoDoLote } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
 
@@ -179,6 +179,26 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
               {outraParte.verificado ? ' ✓' : ''} · {outraParte.municipio}/{outraParte.uf}
             </Texto>
           )}
+          {!tecladoAberto && (
+            <View style={estilos.linhaContato}>
+              <Pressable
+                onPress={() => abrirLink(`tel:${outraParte.telefone}`)}
+                accessibilityRole="link"
+                accessibilityHint={`Liga para ${outraParte.nome}`}>
+                <Texto tipo="pequeno" style={estilos.negrito} selectable>
+                  {formatarTelefone(outraParte.telefone)}
+                </Texto>
+              </Pressable>
+              <Pressable
+                onPress={() => abrirLink(whatsAppDoLote(outraParte.telefone, lote.titulo))}
+                accessibilityRole="link"
+                accessibilityHint={`Abre o WhatsApp com ${outraParte.nome}`}>
+                <Texto tipo="pequeno" cor="brand" style={estilos.negrito}>
+                  Chamar no WhatsApp
+                </Texto>
+              </Pressable>
+            </View>
+          )}
           {conversa.negocioFechado ? (
             !tecladoAberto && (
               <Aviso>
@@ -190,28 +210,14 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
                     Valor total: <Texto style={estilos.negrito}>{formatarReais(conversa.pedido.valorTotal)}</Texto>
                   </Texto>
                 )}
-                {outraParte.telefone ? (
-                  <Texto>
-                    Telefone de {outraParte.nome}:{' '}
-                    <Texto style={estilos.negrito} selectable>
-                      {formatarTelefone(outraParte.telefone)}
-                    </Texto>
-                  </Texto>
-                ) : null}
                 <Texto tipo="pequeno" cor="textSecondary">
-                  O próximo passo é o pagamento protegido, que chega em breve.
+                  Combinem o pagamento e o embarque direto entre vocês. {DICA_SEGURANCA}
                 </Texto>
               </Aviso>
             )
           ) : (
-            <>
-              {!tecladoAberto && lote.status !== 'ativo' && (
-                <Aviso>Este lote não está mais disponível para negociação.</Aviso>
-              )}
-              <Texto tipo="pequeno" cor="textSecondary">
-                Por segurança, o contato fica oculto até o negócio fechar.
-              </Texto>
-            </>
+            !tecladoAberto &&
+            lote.status !== 'ativo' && <Aviso>Este lote não está mais disponível para negociação.</Aviso>
           )}
         </View>
 
@@ -264,7 +270,6 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
             <Escrever
               conversaId={id}
               podePropor={podeNegociar && !tecladoAberto}
-              negocioFechado={conversa.negocioFechado}
               aoPropor={() => fazerProposta()}
               aoEnviar={mensagemEnviada}
             />
@@ -302,13 +307,11 @@ function useTecladoAberto() {
 function Escrever({
   conversaId,
   podePropor,
-  negocioFechado,
   aoPropor,
   aoEnviar,
 }: {
   conversaId: string;
   podePropor: boolean;
-  negocioFechado: boolean;
   aoPropor: () => void;
   aoEnviar: (m: Mensagem) => void;
 }) {
@@ -316,7 +319,6 @@ function Escrever({
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [mascarado, setMascarado] = useState(false);
 
   async function enviar() {
     if (enviando) return;
@@ -328,12 +330,9 @@ function Escrever({
     const enviado = r.data.texto;
     setEnviando(true);
     setErro(null);
-    setMascarado(false);
     setTexto('');
     try {
-      const m = await enviarMensagem(conversaId, enviado);
-      setMascarado(m.texto !== enviado && !!m.texto?.includes(CONTATO_OCULTO));
-      aoEnviar(m);
+      aoEnviar(await enviarMensagem(conversaId, enviado));
     } catch (e) {
       setTexto((atual) => (atual === '' ? enviado : atual));
       setErro(textoDoErro(e));
@@ -354,11 +353,6 @@ function Escrever({
 
   return (
     <>
-      {mascarado && !negocioFechado && (
-        <Aviso>
-          Telefones e e-mails ficam ocultos até o negócio fechar. Combine os detalhes por aqui, com segurança.
-        </Aviso>
-      )}
       {erro ? <Aviso tipo="erro">{erro}</Aviso> : null}
       {podePropor && <Botao titulo="Fazer proposta" variante="secundario" onPress={aoPropor} />}
       <View style={estilos.linhaEscrever}>
@@ -390,6 +384,7 @@ const estilos = StyleSheet.create({
   bloco: { padding: Spacing.three, gap: Spacing.three },
   cabecalho: { borderBottomWidth: 1, padding: Spacing.three, paddingTop: Spacing.two, gap: Spacing.one },
   negrito: { fontWeight: '700' },
+  linhaContato: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Spacing.three, rowGap: Spacing.one },
   mensagens: { padding: Spacing.three, gap: Spacing.two, flexGrow: 1, justifyContent: 'flex-end' },
   centro: { textAlign: 'center' },
   rodape: { borderTopWidth: 1, paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.two },

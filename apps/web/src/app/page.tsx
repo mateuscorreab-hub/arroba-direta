@@ -10,8 +10,8 @@ const PASSOS = [
     texto: "Combine preço, quantidade, pesagem, quebra, frete e data de embarque pelo app.",
   },
   {
-    titulo: "Pagamento protegido",
-    texto: "O comprador paga por Pix e o valor só é liberado ao vendedor depois da entrega conferida.",
+    titulo: "Feche direto com o vendedor",
+    texto: "Chame no WhatsApp ou no chat do app e combine pagamento e embarque direto, sem intermediário.",
   },
 ];
 
@@ -23,7 +23,7 @@ export default function Inicio() {
           Gado direto de pecuarista para pecuarista.
         </h1>
         <p className="max-w-xl text-lg text-suave">
-          Compre e venda bezerros, garrotes, novilhas e bois com segurança no pagamento,
+          Compre e venda bezerros, garrotes, novilhas e bois direto com outros pecuaristas, com
           GTA em dia e reputação verificada.
         </p>
         <Link

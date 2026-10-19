@@ -8,7 +8,6 @@ import {
   VALIDADE_PROPOSTA_HORAS,
   dataEmbarqueValida,
   formatarReais,
-  mascararContato,
   propostaCriarSchema,
   valorTotal,
   type ConversaDetalhe,
@@ -115,7 +114,6 @@ export function FormularioProposta({ conversa, base, meuId, aoEnviar, aoCancelar
   const unidades = lote.pesoMedioKg ? UNIDADES_PROPOSTA : (['cabeca'] as const);
   const respondendo = propostaAberta !== null && propostaAberta.autorId !== meuId;
   const estimado = estimar(unidade, campos, lote.pesoMedioKg);
-  const vaiOcultar = mascararContato(campos.mensagem).mascarado;
 
   const limparErro = (campo: string) => {
     if (erros[campo]) setErros(({ [campo]: _, ...resto }) => resto);
@@ -284,11 +282,6 @@ export function FormularioProposta({ conversa, base, meuId, aoEnviar, aoCancelar
           erro={erros.mensagem}
           style={estilos.mensagem}
         />
-        {vaiOcultar && !conversa.negocioFechado && (
-          <Texto tipo="pequeno" cor="textSecondary">
-            Telefone e e-mail ficam ocultos até o negócio fechar.
-          </Texto>
-        )}
       </View>
 
       <Aviso>

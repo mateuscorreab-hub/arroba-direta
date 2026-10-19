@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import {
   mensagemTamanho,
+  type ContatoVendedor,
   type ConversaDetalhe,
   type Entrar,
   type EnvioMidia,
@@ -169,6 +170,10 @@ export function atualizarPerfil(dados: Perfil) {
 }
 
 /** Abre a conversa do usuário sobre o lote, ou devolve a que já existe. */
+export function obterContatoVendedor(loteId: string) {
+  return requisitar<ContatoVendedor>(`/lotes/${loteId}/contato`, undefined, tokenAtual);
+}
+
 export function abrirConversa(loteId: string) {
   return requisitar<ConversaDetalhe>(`/lotes/${loteId}/conversas`, enviar('POST'), tokenAtual);
 }

@@ -1,6 +1,13 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, count, desc, eq, ilike, lte, gte, sql, type SQL } from 'drizzle-orm';
-import { MIN_FOTOS_PUBLICAR, type Lote, type LoteCriar, type LoteFiltro, type Pagina } from '@arroba/shared';
+import {
+  MIN_FOTOS_PUBLICAR,
+  type ContatoVendedor,
+  type Lote,
+  type LoteCriar,
+  type LoteFiltro,
+  type Pagina,
+} from '@arroba/shared';
 import { DB, type Db } from '../db/db.module.js';
 import { lotes, midias, usuarios } from '../db/schema.js';
 import { MidiasService } from '../midias/midias.service.js';
@@ -83,6 +90,20 @@ export class LotesService {
         .where(and(eq(lotes.id, id), eq(lotes.status, 'rascunho')));
     }
     return this.obter(id);
+  }
+
+  /** Telefone do vendedor para quem fez login. Só de lote na busca; o próprio vendedor vê sempre. */
+  async contato(id: string, usuarioId: string): Promise<ContatoVendedor> {
+    const [linha] = await this.db
+      .select({ status: lotes.status, vendedorId: lotes.vendedorId, nome: usuarios.nome, telefone: usuarios.telefone })
+      .from(lotes)
+      .innerJoin(usuarios, eq(lotes.vendedorId, usuarios.id))
+      .where(eq(lotes.id, id));
+    if (!linha) throw new NotFoundException({ mensagem: 'Lote não encontrado' });
+    if (linha.status !== 'ativo' && linha.vendedorId !== usuarioId) {
+      throw new ConflictException({ mensagem: 'Este lote não está mais disponível.' });
+    }
+    return { nome: linha.nome ?? '', telefone: linha.telefone };
   }
 
   /** Com APROVACAO_LOTES=automatica o lote publicado já entra na busca; senão espera a revisão. */
