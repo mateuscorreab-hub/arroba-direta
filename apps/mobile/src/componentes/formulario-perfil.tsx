@@ -55,7 +55,7 @@ export function FormularioPerfil({ usuario, editando, aoTerminar }: Props) {
       {!editando && (
         <Texto cor="textSecondary">
           Você entrou com o celular {formatarTelefone(usuario.telefone)}. Para anunciar, falta só seu nome e
-          onde fica sua propriedade. Os compradores veem esses dados nos seus anúncios.
+          onde fica sua propriedade. Quem entrar no app vê esses dados e o seu celular nos seus anúncios.
         </Texto>
       )}
       <CampoTexto

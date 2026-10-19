@@ -98,7 +98,7 @@ function ListaDeConversas({ meuId }: { meuId: string }) {
       ListEmptyComponent={
         <View style={estilos.vazio}>
           <Texto cor="textSecondary">
-            Você ainda não tem conversas. Abra um lote em Buscar e toque em Conversar com o vendedor.
+            Você ainda não tem conversas. Abra um lote em Buscar e toque em Conversar pelo app.
           </Texto>
           <Botao titulo="Buscar lotes" variante="secundario" onPress={() => router.navigate('/')} />
         </View>

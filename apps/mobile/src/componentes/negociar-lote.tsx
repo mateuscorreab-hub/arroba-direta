@@ -63,7 +63,7 @@ export function NegociarLote({ lote }: { lote: Lote }) {
         <ContatoVendedor lote={lote} />
         <Aviso>
           Para conversar pelo app ou fazer uma proposta, complete seu perfil com nome, município e estado. O vendedor
-          vê esses dados.
+          vê esses dados e o seu celular.
         </Aviso>
         <Botao titulo="Completar perfil" variante="secundario" onPress={irParaPerfil} />
       </>
@@ -117,6 +117,9 @@ function BotoesNegociar({ loteId }: { loteId: string }) {
         carregando={ocupado === 'propor'}
         desabilitado={ocupado !== null}
       />
+      <Texto tipo="pequeno" cor="textSecondary">
+        Ao conversar pelo app, o vendedor vê seu nome, município e celular.
+      </Texto>
     </>
   );
 }

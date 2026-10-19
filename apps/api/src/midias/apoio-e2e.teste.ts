@@ -18,8 +18,8 @@ export class ApoioE2e {
     return request(this.app().getHttpServer());
   }
 
-  /** Conta nova com perfil completo. Devolve o cabeçalho Authorization. */
-  async vendedor(): Promise<string> {
+  /** Conta nova, com perfil completo se não pedir o contrário. Devolve o cabeçalho Authorization. */
+  async vendedor({ perfil = true } = {}): Promise<string> {
     const telefone = `+55119${String(randomInt(1e8)).padStart(8, '0')}`;
     this.telefones.push(telefone);
     const pedido = await this.http().post('/auth/codigo').send({ telefone }).expect(201);
@@ -28,6 +28,7 @@ export class ApoioE2e {
       .send({ telefone, codigo: pedido.body.codigoTeste })
       .expect(200);
     const auth = `Bearer ${body.token}`;
+    if (!perfil) return auth;
     await this.http()
       .patch('/eu')
       .set('Authorization', auth)

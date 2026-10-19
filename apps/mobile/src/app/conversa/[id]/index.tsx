@@ -18,7 +18,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   MENSAGEM_MAX,
   formatarReais,
-  formatarTelefone,
   mensagemCriarSchema,
   type ConversaDetalhe,
   type Eu,
@@ -29,13 +28,14 @@ import { Aviso } from '@/componentes/aviso';
 import { BalaoMensagem } from '@/componentes/balao-mensagem';
 import { Botao } from '@/componentes/botao';
 import { CartaoProposta } from '@/componentes/cartao-proposta';
+import { LinhaContato } from '@/componentes/contato-vendedor';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useDadosEmFoco } from '@/hooks/use-dados-em-foco';
 import { useTheme } from '@/hooks/use-theme';
 import { consumirAbrirProposta } from '@/lib/abrir-proposta';
 import { ErroApi, aceitarProposta, enviarMensagem, obterConversa, recusarProposta, textoDoErro } from '@/lib/api';
-import { DICA_SEGURANCA, abrirLink, whatsAppDoLote } from '@/lib/contato';
+import { DICA_SEGURANCA } from '@/lib/contato';
 import { cabecas, precoDoLote } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
 
@@ -179,25 +179,13 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
               {outraParte.verificado ? ' ✓' : ''} · {outraParte.municipio}/{outraParte.uf}
             </Texto>
           )}
-          {!tecladoAberto && (
-            <View style={estilos.linhaContato}>
-              <Pressable
-                onPress={() => abrirLink(`tel:${outraParte.telefone}`)}
-                accessibilityRole="link"
-                accessibilityHint={`Liga para ${outraParte.nome}`}>
-                <Texto tipo="pequeno" style={estilos.negrito} selectable>
-                  {formatarTelefone(outraParte.telefone)}
-                </Texto>
-              </Pressable>
-              <Pressable
-                onPress={() => abrirLink(whatsAppDoLote(outraParte.telefone, lote.titulo))}
-                accessibilityRole="link"
-                accessibilityHint={`Abre o WhatsApp com ${outraParte.nome}`}>
-                <Texto tipo="pequeno" cor="brand" style={estilos.negrito}>
-                  Chamar no WhatsApp
-                </Texto>
-              </Pressable>
-            </View>
+          {!tecladoAberto && outraParte.telefone && (
+            <LinhaContato
+              telefone={outraParte.telefone}
+              nome={outraParte.nome}
+              titulo={lote.titulo}
+              papel={conversa.papel}
+            />
           )}
           {conversa.negocioFechado ? (
             !tecladoAberto && (
@@ -211,7 +199,7 @@ function Conversa({ id, usuario }: { id: string; usuario: Eu }) {
                   </Texto>
                 )}
                 <Texto tipo="pequeno" cor="textSecondary">
-                  Combinem o pagamento e o embarque direto entre vocês. {DICA_SEGURANCA}
+                  Combinem o pagamento e o embarque direto entre vocês. {DICA_SEGURANCA[conversa.papel]}
                 </Texto>
               </Aviso>
             )
@@ -384,7 +372,6 @@ const estilos = StyleSheet.create({
   bloco: { padding: Spacing.three, gap: Spacing.three },
   cabecalho: { borderBottomWidth: 1, padding: Spacing.three, paddingTop: Spacing.two, gap: Spacing.one },
   negrito: { fontWeight: '700' },
-  linhaContato: { flexDirection: 'row', flexWrap: 'wrap', columnGap: Spacing.three, rowGap: Spacing.one },
   mensagens: { padding: Spacing.three, gap: Spacing.two, flexGrow: 1, justifyContent: 'flex-end' },
   centro: { textAlign: 'center' },
   rodape: { borderTopWidth: 1, paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.two },

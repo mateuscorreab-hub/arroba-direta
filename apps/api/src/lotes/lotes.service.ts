@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, NotFoundExc
 import { and, asc, count, desc, eq, ilike, lte, gte, sql, type SQL } from 'drizzle-orm';
 import {
   MIN_FOTOS_PUBLICAR,
+  celularDeContato,
   type ContatoVendedor,
   type Lote,
   type LoteCriar,
@@ -12,6 +13,9 @@ import { DB, type Db } from '../db/db.module.js';
 import { lotes, midias, usuarios } from '../db/schema.js';
 import { MidiasService } from '../midias/midias.service.js';
 import { APROVACAO_LOTES, type AprovacaoLotes } from './aprovacao-lotes.js';
+
+// Os vendedores dos lotes de exemplo (seed) têm número de mentira, que não chama no WhatsApp.
+const SEM_TELEFONE = 'Este é um anúncio de exemplo, sem telefone de contato.';
 
 @Injectable()
 export class LotesService {
@@ -103,7 +107,9 @@ export class LotesService {
     if (linha.status !== 'ativo' && linha.vendedorId !== usuarioId) {
       throw new ConflictException({ mensagem: 'Este lote não está mais disponível.' });
     }
-    return { nome: linha.nome ?? '', telefone: linha.telefone };
+    const telefone = celularDeContato(linha.telefone);
+    if (!telefone) throw new NotFoundException({ mensagem: SEM_TELEFONE });
+    return { nome: linha.nome ?? '', telefone };
   }
 
   /** Com APROVACAO_LOTES=automatica o lote publicado já entra na busca; senão espera a revisão. */

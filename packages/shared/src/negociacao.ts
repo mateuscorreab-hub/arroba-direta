@@ -114,7 +114,8 @@ export interface ParteNegociacao {
   verificado: boolean;
   municipio: string;
   uf: string;
-  telefone: string;
+  /** null quando a conta não tem celular de verdade (os vendedores dos lotes de exemplo). */
+  telefone: string | null;
 }
 
 /** GET /lotes/:id/contato: o telefone do vendedor, para quem fez login. */

@@ -303,6 +303,19 @@ describe('Negociação (e2e)', () => {
     expect(pedido).toMatchObject({ valorTotal: 156364, status: 'aguardando_pagamento' });
   });
 
+  it('vendedor de lote de exemplo aparece sem telefone na conversa', async () => {
+    const comprador = await pessoa('Comprador de Teste');
+    const [exemplo] = await db
+      .select({ id: lotes.id })
+      .from(lotes)
+      .innerJoin(usuarios, eq(lotes.vendedorId, usuarios.id))
+      .where(and(eq(usuarios.telefone, '+5520999990001'), eq(lotes.status, 'ativo')))
+      .limit(1);
+    expect(exemplo).toBeDefined();
+    const res = await abrir(comprador, exemplo.id).expect(200);
+    expect(res.body.outraParte).toMatchObject({ nome: 'João da Silva', telefone: null });
+  });
+
   it('proposta por kg vivo', async () => {
     const { vendedor, comprador, conversaId } = await negociacao();
     const p = await propor(vendedor, conversaId, { preco: 12.5, unidadePreco: 'kg', quantidade: 10, quebraPercentual: 2 });

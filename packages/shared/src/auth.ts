@@ -29,6 +29,11 @@ export function formatarTelefone(e164: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
+/** O próprio telefone se for um celular válido; null nos números de mentira das contas de exemplo. */
+export function celularDeContato(e164: string): string | null {
+  return normalizarTelefone(e164) === e164 ? e164 : null;
+}
+
 /** Link que abre a conversa no WhatsApp com o número, já com a mensagem escrita se houver. */
 export function linkWhatsApp(e164: string, mensagem?: string): string {
   const link = `https://wa.me/${e164.replace(/\D/g, '')}`;

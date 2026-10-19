@@ -84,8 +84,8 @@ export default function Anunciar() {
       <>
         <Texto tipo="titulo">Complete seu perfil</Texto>
         <Texto cor="textSecondary">
-          Antes de anunciar, informe seu nome, município e estado. Os compradores veem esses dados no
-          anúncio.
+          Antes de anunciar, informe seu nome, município e estado. Quem entrar no app vê esses dados e o seu
+          celular no anúncio, para ligar ou chamar no WhatsApp.
         </Texto>
         <Botao titulo="Completar perfil" onPress={irParaPerfil} />
       </>

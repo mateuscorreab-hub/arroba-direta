@@ -10,6 +10,7 @@ import { and, count, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core';
 import {
   VALIDADE_PROPOSTA_HORAS,
+  celularDeContato,
   dataEmbarqueValida,
   resumoProposta,
   valorTotal,
@@ -492,6 +493,6 @@ function paraParte(
     verificado: u.verificado,
     municipio: u.municipio ?? '',
     uf: u.uf ?? '',
-    telefone: u.telefone,
+    telefone: celularDeContato(u.telefone),
   };
 }

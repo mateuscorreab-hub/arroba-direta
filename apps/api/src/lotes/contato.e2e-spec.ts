@@ -5,10 +5,10 @@ import request from 'supertest';
 import type { ContatoVendedor } from '@arroba/shared';
 import { AppModule } from '../app.module.js';
 import { DB, type Db } from '../db/db.module.js';
-import { lotes } from '../db/schema.js';
+import { lotes, usuarios } from '../db/schema.js';
 import { ApoioE2e } from '../midias/apoio-e2e.teste.js';
 
-// Requer Postgres com migrations aplicadas. Os lotes de teste saem ativos (APROVACAO_LOTES=automatica).
+// Requer Postgres com migrations e seed aplicados. Os lotes de teste saem ativos (APROVACAO_LOTES=automatica).
 describe('Telefone do vendedor (e2e)', () => {
   let app: INestApplication;
   let db: Db;
@@ -47,9 +47,31 @@ describe('Telefone do vendedor (e2e)', () => {
     const res = await contato(comprador, loteId).expect(200);
     expect(res.body).toEqual({ nome: 'Vendedor de Fotos', telefone: await telefoneDe(vendedor) } satisfies ContatoVendedor);
 
+    // Só o login basta: quem ainda não completou o perfil também vê.
+    const semPerfil = await apoio.vendedor({ perfil: false });
+    expect((await contato(semPerfil, loteId).expect(200)).body.telefone).toBe(res.body.telefone);
+
+    const digitos = res.body.telefone.slice(3);
     const publico = await request(app.getHttpServer()).get(`/lotes/${loteId}`).expect(200);
     expect(publico.body.status).toBe('ativo');
-    expect(JSON.stringify(publico.body)).not.toContain(res.body.telefone.slice(3));
+    expect(JSON.stringify(publico.body)).not.toContain(digitos);
+    const busca = await request(app.getHttpServer()).get('/lotes').query({ porPagina: 50 }).expect(200);
+    expect(busca.body.itens.map((l: { id: string }) => l.id)).toContain(loteId);
+    expect(JSON.stringify(busca.body)).not.toContain(digitos);
+  });
+
+  it('lote de exemplo (vendedor com número de mentira) não mostra telefone', async () => {
+    const comprador = await apoio.vendedor();
+    const [exemplo] = await db
+      .select({ id: lotes.id })
+      .from(lotes)
+      .innerJoin(usuarios, eq(lotes.vendedorId, usuarios.id))
+      .where(eq(usuarios.telefone, '+5520999990001'))
+      .limit(1);
+    expect(exemplo).toBeDefined();
+    await db.update(lotes).set({ status: 'ativo' }).where(eq(lotes.id, exemplo.id));
+    const res = await contato(comprador, exemplo.id).expect(404);
+    expect(res.body).toEqual({ mensagem: 'Este é um anúncio de exemplo, sem telefone de contato.' });
   });
 
   it('exige login', async () => {
@@ -62,7 +84,7 @@ describe('Telefone do vendedor (e2e)', () => {
     const vendedor = await apoio.vendedor();
     const comprador = await apoio.vendedor();
     const loteId = await apoio.lote(vendedor);
-    for (const status of ['rascunho', 'em_analise', 'negociando', 'vendido'] as const) {
+    for (const status of ['rascunho', 'em_analise', 'negociando', 'vendido', 'encerrado'] as const) {
       await db.update(lotes).set({ status }).where(eq(lotes.id, loteId));
       const res = await contato(comprador, loteId).expect(409);
       expect(res.body).toEqual({ mensagem: 'Este lote não está mais disponível.' });

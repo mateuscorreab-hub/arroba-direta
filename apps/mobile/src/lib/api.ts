@@ -169,11 +169,12 @@ export function atualizarPerfil(dados: Perfil) {
   return requisitar<Eu>('/eu', enviar('PATCH', dados), tokenAtual);
 }
 
-/** Abre a conversa do usuário sobre o lote, ou devolve a que já existe. */
+/** Nome e celular do vendedor; exige login e lote na busca. */
 export function obterContatoVendedor(loteId: string) {
   return requisitar<ContatoVendedor>(`/lotes/${loteId}/contato`, undefined, tokenAtual);
 }
 
+/** Abre a conversa do usuário sobre o lote, ou devolve a que já existe. */
 export function abrirConversa(loteId: string) {
   return requisitar<ConversaDetalhe>(`/lotes/${loteId}/conversas`, enviar('POST'), tokenAtual);
 }

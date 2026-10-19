@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { entrarSchema, formatarTelefone, linkWhatsApp, normalizarTelefone, perfilSchema } from './auth.js';
+import {
+  celularDeContato,
+  entrarSchema,
+  formatarTelefone,
+  linkWhatsApp,
+  normalizarTelefone,
+  perfilSchema,
+} from './auth.js';
 
 describe('normalizarTelefone', () => {
   it.each([
@@ -29,6 +36,14 @@ describe('normalizarTelefone', () => {
 describe('formatarTelefone', () => {
   it('formata para exibir', () => {
     expect(formatarTelefone('+5567999990001')).toBe('(67) 99999-0001');
+  });
+});
+
+describe('celularDeContato', () => {
+  it('devolve o celular válido e null no número das contas de exemplo', () => {
+    expect(celularDeContato('+5567999990001')).toBe('+5567999990001');
+    expect(celularDeContato('+5520999990001')).toBeNull();
+    expect(celularDeContato('+556733334444')).toBeNull();
   });
 });
 
