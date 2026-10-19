@@ -152,7 +152,8 @@ function FormularioEdicao({ lote }: { lote: Lote }) {
       ? 'Ao salvar uma mudança, o anúncio sai da busca e passa por uma nova revisão. Quem já conversa com você ' +
         'sobre este lote recebe um aviso, e a proposta em aberto deixa de valer.'
       : `${MUDAR_GADO}, quem já conversa com você sobre este lote recebe um aviso, e a proposta em aberto deixa de valer.`;
-  } else if (lote.status === 'encerrado') {
+  } else if (lote.status === 'encerrado' || lote.status === 'em_analise') {
+    // Fora da busca não há proposta aberta, mas as conversas do lote recebem o aviso.
     avisoAntes = `${MUDAR_GADO}, quem já conversa com você sobre este lote recebe um aviso.`;
   }
 

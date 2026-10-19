@@ -9,7 +9,7 @@ import request from 'supertest';
 import { hojeEmBrasilia, type ConversaDetalhe, type Lote } from '@arroba/shared';
 import { AppModule } from '../app.module.js';
 import { DB, type Db } from '../db/db.module.js';
-import { lotes } from '../db/schema.js';
+import { lotes, propostas } from '../db/schema.js';
 import { ApoioE2e, adicionarLocal, enviarLocal, esperarBloqueados } from '../midias/apoio-e2e.teste.js';
 import { png } from '../midias/arquivos-falsos.teste.js';
 
@@ -451,6 +451,21 @@ describe('Meus anúncios: editar, pausar, reativar e vender (e2e)', () => {
     });
     await editar(vendedor, id, corpo()).expect(200);
     expect(propostaNa(await ver(comprador, conversa), proposta.id)?.valorEstimado).toBe(132000);
+  });
+
+  it('proposta sem peso gravado (feita pela versão anterior da API) usa o peso do lote', async () => {
+    const vendedor = await apoio.vendedor();
+    const comprador = await apoio.vendedor();
+    const id = await apoio.lote(vendedor, { unidadePreco: 'arroba', preco: 320, pesoMedioKg: 330 });
+    const conversa = await conversaCom(comprador, id);
+    const proposta = (await propor(comprador, conversa, { unidadePreco: 'arroba', preco: 300 }).expect(201)).body;
+    await db.update(propostas).set({ pesoMedioKg: null }).where(eq(propostas.id, proposta.id));
+
+    const antes = await ver(comprador, conversa);
+    expect(antes.propostaAberta?.valorEstimado).toBe(132000);
+    expect(propostaNa(antes, proposta.id)?.valorEstimado).toBe(132000);
+    await api().post(`/propostas/${proposta.id}/aceitar`).set('Authorization', vendedor).expect(200);
+    expect((await ver(comprador, conversa)).pedido?.valorTotal).toBe(132000);
   });
 
   it('fotos e vídeo de lote com negócio fechado ou vendido não mudam mais', async () => {

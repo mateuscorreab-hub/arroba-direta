@@ -155,7 +155,7 @@ export class NegociacaoService {
         : Promise.resolve([]),
     ]);
     const agora = Date.now();
-    const porId = new Map(citadas.map((p) => [p.id, paraProposta(p, agora)]));
+    const porId = new Map(citadas.map((p) => [p.id, paraProposta(p, agora, resumo.lote.pesoMedioKg)]));
     return {
       ...resumo,
       mensagens: recentes.reverse().map((m) => paraMensagem(m, m.propostaId ? porId.get(m.propostaId) : undefined)),
@@ -235,7 +235,8 @@ export class NegociacaoService {
       if (lote.status !== 'ativo') throw new ConflictException({ mensagem: LOTE_INDISPONIVEL });
 
       // O peso gravado na proposta: editar o peso do lote encerra as propostas abertas, então é o mesmo de agora.
-      const total = valorTotal(entradaValor(atual, atual.pesoMedioKg));
+      // Proposta sem peso gravado (feita pela versão anterior durante a troca no Render) usa o do lote.
+      const total = valorTotal(entradaValor(atual, atual.pesoMedioKg ?? lote.pesoMedioKg));
       await tx.insert(pedidos).values({ propostaId, valorTotal: total });
       await tx.update(propostas).set({ status: 'aceita', respondidaEm: sql`now()` }).where(eq(propostas.id, propostaId));
       await tx.update(lotes).set({ status: 'negociando' }).where(eq(lotes.id, lote.id));
@@ -369,7 +370,7 @@ export class NegociacaoService {
               }
             : null,
           naoLidas: naoLidasPor.get(conversa.id) ?? 0,
-          propostaAberta: aberta && !vencida(aberta, agora) ? paraProposta(aberta, agora) : null,
+          propostaAberta: aberta && !vencida(aberta, agora) ? paraProposta(aberta, agora, lote.pesoMedioKg) : null,
           negocioFechado: Boolean(pedido),
           atualizadoEm: conversa.atualizadoEm.toISOString(),
         },
@@ -460,7 +461,9 @@ function entradaValor(
   };
 }
 
-function paraProposta(p: PropostaLinha, agora: number): PropostaNegociacao {
+/** `pesoDoLote` só vale para proposta sem peso gravado, feita antes da coluna existir. */
+function paraProposta(p: PropostaLinha, agora: number, pesoDoLote: number | null = null): PropostaNegociacao {
+  const peso = p.pesoMedioKg ?? pesoDoLote;
   return {
     id: p.id,
     conversaId: p.conversaId,
@@ -476,8 +479,7 @@ function paraProposta(p: PropostaLinha, agora: number): PropostaNegociacao {
     expiraEm: p.expiraEm.toISOString(),
     criadoEm: p.criadoEm.toISOString(),
     // Com o peso de quando foi feita. Sem peso só existe proposta por cabeça; o 0 só protege de um dado torto.
-    valorEstimado:
-      p.unidadePreco === 'cabeca' || p.pesoMedioKg ? valorTotal(entradaValor(p, p.pesoMedioKg)) : 0,
+    valorEstimado: p.unidadePreco === 'cabeca' || peso ? valorTotal(entradaValor(p, peso)) : 0,
   };
 }
 

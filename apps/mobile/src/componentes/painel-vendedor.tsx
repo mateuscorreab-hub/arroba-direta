@@ -8,7 +8,7 @@ import { Botao } from '@/componentes/botao';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ErroApi, marcarLoteVendido, obterLote, pausarLote, publicarLote, reativarLote, textoDoErro } from '@/lib/api';
+import { ErroApi, marcarLoteVendido, pausarLote, publicarLote, reativarLote, textoDoErro } from '@/lib/api';
 
 // O lote fora da busca precisa dizer por quê, senão o vendedor acha que deu errado e anuncia de novo.
 const SITUACAO: Record<StatusLote, string> = {
@@ -36,7 +36,16 @@ const CHAMADA: Record<Acao, (id: string) => Promise<Lote>> = {
  * Na tela do lote, para o vendedor: a situação do anúncio e o que dá para fazer com ele.
  * Confirma na própria tela: Alert não funciona na web.
  */
-export function PainelDoVendedor({ lote, aoMudar }: { lote: Lote; aoMudar: (lote: Lote) => void }) {
+export function PainelDoVendedor({
+  lote,
+  aoMudar,
+  recarregar,
+}: {
+  lote: Lote;
+  aoMudar: (lote: Lote) => void;
+  /** Busca o lote de novo, descartando a resposta se ele mudar antes de ela chegar. */
+  recarregar: () => void;
+}) {
   const tema = useTheme();
   const [confirmando, setConfirmando] = useState<'pausar' | 'vender' | null>(null);
   const [ocupado, setOcupado] = useState<Acao | null>(null);
@@ -67,7 +76,7 @@ export function PainelDoVendedor({ lote, aoMudar }: { lote: Lote; aoMudar: (lote
       // 409: o lote mudou por outro caminho (um comprador fechou negócio, por exemplo); mostra como ele está.
       if (e instanceof ErroApi && e.status === 409) {
         setConfirmando(null);
-        obterLote(lote.id).then(aoMudar, () => {});
+        recarregar();
       }
     } finally {
       setOcupado(null);

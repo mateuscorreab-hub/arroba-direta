@@ -21,7 +21,8 @@ export default function LoteDetalhe() {
   const [lote, setLote] = useState<Lote | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
-  // Cada troca do lote pelo painel do vendedor conta uma versão: a recarga que saiu antes dela é descartada.
+  // Cada troca do lote (pelo painel do vendedor ou por uma recarga) conta uma versão: a resposta que chega depois
+  // de uma troca mais nova é descartada.
   const versao = useRef(0);
   const mudarLote = useCallback((l: Lote) => {
     versao.current += 1;
@@ -30,7 +31,7 @@ export default function LoteDetalhe() {
 
   const carregar = useCallback(() => {
     let ativo = true;
-    const minha = versao.current;
+    const minha = ++versao.current;
     obterLote(id).then(
       (l) => {
         if (!ativo || minha !== versao.current) return;
@@ -38,7 +39,7 @@ export default function LoteDetalhe() {
         setErro(null);
       },
       (e: unknown) => {
-        if (ativo) setErro(textoDoErro(e));
+        if (ativo && minha === versao.current) setErro(textoDoErro(e));
       },
     );
     return () => {
@@ -90,7 +91,7 @@ export default function LoteDetalhe() {
       <View style={estilos.coluna}>
         <GaleriaLote midias={lote.midias ?? []} categoria={categoria} titulo={lote.titulo} />
         <View style={estilos.conteudo}>
-          {souVendedor && <PainelDoVendedor lote={lote} aoMudar={mudarLote} />}
+          {souVendedor && <PainelDoVendedor lote={lote} aoMudar={mudarLote} recarregar={carregar} />}
           <Texto tipo="titulo">{lote.titulo}</Texto>
           <Texto tipo="destaque" cor="brand">
             {precoDoLote(lote)}
