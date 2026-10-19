@@ -1,6 +1,6 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, count, desc, eq, ilike, lte, gte, sql, type SQL } from 'drizzle-orm';
-import type { Lote, LoteCriar, LoteFiltro, Pagina } from '@arroba/shared';
+import { MIN_FOTOS_PUBLICAR, type Lote, type LoteCriar, type LoteFiltro, type Pagina } from '@arroba/shared';
 import { DB, type Db } from '../db/db.module.js';
 import { lotes, midias, usuarios } from '../db/schema.js';
 import { MidiasService } from '../midias/midias.service.js';
@@ -56,12 +56,38 @@ export class LotesService {
     return { ...paraLote(linha, this.midias.capa(linha.capa)), midias: await this.midias.listar(id) };
   }
 
-  async criar(vendedorId: string, dados: LoteCriar): Promise<Lote> {
+  async criar(vendedorId: string, dados: LoteCriar, { rascunho = false } = {}): Promise<Lote> {
     const [{ id }] = await this.db
       .insert(lotes)
-      .values({ ...dados, vendedorId, status: this.aprovacao === 'automatica' ? 'ativo' : 'em_analise' })
+      .values({
+        ...dados,
+        vendedorId,
+        status: rascunho ? 'rascunho' : this.statusPublicado(),
+      })
       .returning({ id: lotes.id });
     return this.obter(id);
+  }
+
+  /** Tira o lote do rascunho. Quem chama já conferiu que o usuário é o vendedor (VendedorDoLoteGuard). */
+  async publicar(id: string): Promise<Lote> {
+    const [lote] = await this.db.select({ status: lotes.status }).from(lotes).where(eq(lotes.id, id));
+    // Fora do rascunho devolve o lote como está: o app repete o pedido quando perde a conexão.
+    if (lote?.status === 'rascunho') {
+      if (this.midias.estado().ligado && (await this.midias.contar(id, 'foto')) < MIN_FOTOS_PUBLICAR) {
+        throw new BadRequestException({ mensagem: 'Coloque pelo menos uma foto do lote antes de publicar.' });
+      }
+      // Só se ainda for rascunho: pedido repetido ou status mudado no meio do caminho não volta o lote para análise.
+      await this.db
+        .update(lotes)
+        .set({ status: this.statusPublicado() })
+        .where(and(eq(lotes.id, id), eq(lotes.status, 'rascunho')));
+    }
+    return this.obter(id);
+  }
+
+  /** Com APROVACAO_LOTES=automatica o lote publicado já entra na busca; senão espera a revisão. */
+  private statusPublicado() {
+    return this.aprovacao === 'automatica' ? ('ativo' as const) : ('em_analise' as const);
   }
 
   private consulta(distancia?: SQL<number>) {

@@ -11,7 +11,7 @@ import { ARMAZENAMENTO, type Armazenamento } from './midias/armazenamento.js';
 import { ArmazenamentoModule } from './midias/armazenamento.module.js';
 import { ArmazenamentoLocal } from './midias/local.js';
 import { MidiasLocalController } from './midias/midias-local.controller.js';
-import { MidiasController } from './midias/midias.controller.js';
+import { EstadoMidiasController, MidiasController } from './midias/midias.controller.js';
 import { MidiasService } from './midias/midias.service.js';
 import { NegociacaoController } from './negociacao/negociacao.controller.js';
 import { NegociacaoService } from './negociacao/negociacao.service.js';
@@ -33,6 +33,7 @@ import { SaudeController } from './saude/saude.controller.js';
     AuthController,
     LotesController,
     MidiasController,
+    EstadoMidiasController,
     MidiasLocalController,
     NegociacaoController,
   ],

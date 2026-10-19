@@ -9,10 +9,11 @@ type Props<T extends string> = {
   atual: T | undefined;
   aoEscolher: (v: T) => void;
   rotulos?: Partial<Record<T, string>>;
+  desabilitado?: boolean;
 };
 
 /** Escolha de uma opção em botões lado a lado, sem lista suspensa. */
-export function Opcoes<T extends string>({ lista, atual, aoEscolher, rotulos }: Props<T>) {
+export function Opcoes<T extends string>({ lista, atual, aoEscolher, rotulos, desabilitado }: Props<T>) {
   const tema = useTheme();
   return (
     <View style={estilos.opcoes} accessibilityRole="radiogroup">
@@ -22,9 +23,14 @@ export function Opcoes<T extends string>({ lista, atual, aoEscolher, rotulos }: 
           <Pressable
             key={v}
             onPress={() => aoEscolher(v)}
+            disabled={desabilitado}
             accessibilityRole="radio"
-            accessibilityState={{ checked: ativo }}
-            style={[estilos.chip, { borderColor: tema.border, backgroundColor: ativo ? tema.brand : tema.backgroundElement }]}>
+            accessibilityState={{ checked: ativo, disabled: !!desabilitado }}
+            style={[
+              estilos.chip,
+              { borderColor: tema.border, backgroundColor: ativo ? tema.brand : tema.backgroundElement },
+              desabilitado && estilos.apagado,
+            ]}>
             <Texto tipo="pequeno" cor={ativo ? 'onBrand' : 'text'}>
               {rotulos?.[v] ?? v}
             </Texto>
@@ -46,4 +52,5 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  apagado: { opacity: 0.6 },
 });

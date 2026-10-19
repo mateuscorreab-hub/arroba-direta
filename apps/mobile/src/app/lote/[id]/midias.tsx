@@ -1,33 +1,28 @@
 import { Image } from 'expo-image';
-import { useKeepAwake } from 'expo-keep-awake';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove, type NavigationAction } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { MAX_FOTOS_LOTE, MAX_VIDEOS_LOTE, type Lote, type Midia } from '@arroba/shared';
 
 import { Aviso } from '@/componentes/aviso';
+import { AvisoPermissao } from '@/componentes/aviso-permissao';
 import { Botao } from '@/componentes/botao';
+import { BotaoPequeno } from '@/componentes/botao-pequeno';
+import { BotoesEscolha } from '@/componentes/botoes-escolha';
+import { DicaFotos } from '@/componentes/dica-fotos';
 import { LARGURA_MAXIMA } from '@/componentes/galeria-lote';
+import { LinhaEnvio } from '@/componentes/linha-envio';
+import { ManterTelaLigada } from '@/componentes/manter-tela-ligada';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
+import { useAvisarAoFechar } from '@/hooks/use-avisar-ao-fechar';
+import { useEscolhaMidia, type Escolha } from '@/hooks/use-escolha-midia';
 import { useTheme } from '@/hooks/use-theme';
 import { ErroApi, apagarMidia, obterLote, ordenarMidias, textoDoErro } from '@/lib/api';
-import { escolherFotos, escolherVideo, tirarFoto, type ResultadoEscolha } from '@/lib/escolher-midia';
-import { useFilaEnvio, type ItemEnvio } from '@/lib/fila-envio';
-import { duracaoTexto, tamanhoTexto } from '@/lib/formato';
+import { useFilaEnvio } from '@/lib/fila-envio';
+import { duracaoTexto } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
-
-const DICA = 'Fotos de dia, mostrando o lote inteiro e alguns animais de perto. Vídeo de até 1 minuto com os animais andando.';
 
 const ordenar = (l: Midia[]) => [...l].sort((a, b) => a.ordem - b.ordem);
 
@@ -36,7 +31,7 @@ function verLote(id: string) {
 }
 
 export default function MidiasDoLote() {
-  const { id, novo } = useLocalSearchParams<{ id: string; novo?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const tema = useTheme();
   const sessao = useSessao();
   const [lote, setLote] = useState<Lote | null>(null);
@@ -60,7 +55,7 @@ export default function MidiasDoLote() {
     };
   }, [id, versao]);
 
-  if (lote && sessao.usuario?.id === lote.vendedor.id) return <EditorMidias lote={lote} novo={novo === '1'} />;
+  if (lote && sessao.usuario?.id === lote.vendedor.id) return <EditorMidias lote={lote} />;
 
   let conteudo;
   if (sessao.carregando || (!lote && !erro)) {
@@ -102,28 +97,17 @@ export default function MidiasDoLote() {
   );
 }
 
-type Permissao = { recurso: 'camera' | 'galeria'; podePedirDeNovo: boolean };
-type Escolha = 'fotos' | 'camera' | 'video';
-
-/** Tela apagada manda o app para segundo plano, e o envio para. */
-function ManterTelaLigada() {
-  useKeepAwake('envio-midia', { suppressDeactivateWarnings: true });
-  return null;
-}
-
-function EditorMidias({ lote, novo }: { lote: Lote; novo: boolean }) {
+function EditorMidias({ lote }: { lote: Lote }) {
   const tema = useTheme();
   const janela = useWindowDimensions();
   const navigation = useNavigation();
   const [midias, setMidias] = useState(() => ordenar(lote.midias ?? []));
   const fila = useFilaEnvio(lote.id, setMidias);
+  const escolha = useEscolhaMidia();
   const [aviso, setAviso] = useState<{ tipo: 'info' | 'erro'; texto: string } | null>(null);
-  const [permissao, setPermissao] = useState<Permissao | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [ocupada, setOcupada] = useState<string | null>(null);
   const [confirmarSaida, setConfirmarSaida] = useState(false);
-  const [preparando, setPreparando] = useState<Escolha | null>(null);
-  const abrindo = useRef(false);
   const saidaPendente = useRef<NavigationAction | null>(null);
   const rolagem = useRef<ScrollView>(null);
 
@@ -151,49 +135,17 @@ function EditorMidias({ lote, novo }: { lote: Lote; novo: boolean }) {
   }, [confirmarSaida]);
 
   // Na web, recarregar ou fechar a aba também cancela o envio.
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !enviando) return;
-    const avisar = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener('beforeunload', avisar);
-    return () => window.removeEventListener('beforeunload', avisar);
-  }, [enviando]);
+  useAvisarAoFechar(enviando);
 
   const larguraUtil = Math.min(janela.width - Spacing.three * 2, LARGURA_MAXIMA);
   const colunas = larguraUtil >= 520 ? 3 : 2;
   const larguraItem = Math.floor((larguraUtil - Spacing.three * (colunas - 1)) / colunas);
 
   async function escolher(acao: Escolha) {
-    // Na web o seletor nem sempre avisa quando a pessoa desiste; lá o botão não pode ficar travado.
-    if (abrindo.current) return;
     setAviso(null);
-    setPermissao(null);
-    const maximo = fotosRestantes;
-    // O seletor abre já no toque, antes de qualquer await (exigência do navegador).
-    const pedido = acao === 'fotos' ? escolherFotos(maximo) : acao === 'camera' ? tirarFoto() : escolherVideo();
-    // No celular, depois de escolher, o seletor ainda prepara os arquivos (comprime, baixa do iCloud) com a
-    // tela parada: o botão mostra que está trabalhando.
-    abrindo.current = Platform.OS !== 'web';
-    if (abrindo.current) setPreparando(acao);
-    let r: ResultadoEscolha;
-    try {
-      r = await pedido;
-    } finally {
-      abrindo.current = false;
-      setPreparando(null);
-    }
-    if (r.tipo === 'sem-permissao') setPermissao(r);
-    else if (r.tipo === 'erro') setAviso({ tipo: 'erro', texto: r.mensagem });
-    else if (r.tipo === 'ok' && acao === 'video') fila.adicionar(r.arquivos.slice(0, 1));
-    else if (r.tipo === 'ok') {
-      if (r.arquivos.length > maximo) {
-        const fora = r.arquivos.length - maximo;
-        setAviso({
-          tipo: 'info',
-          texto: `O lote aceita até ${MAX_FOTOS_LOTE} fotos. ${fora === 1 ? 'Uma foto ficou' : `${fora} fotos ficaram`} de fora.`,
-        });
-      }
-      fila.adicionar(r.arquivos.slice(0, maximo));
-    }
+    const r = await escolha.escolher(acao, fotosRestantes);
+    if (r.aviso) setAviso(r.aviso);
+    if (r.arquivos.length > 0) fila.adicionar(r.arquivos);
   }
 
   async function apagar(m: Midia) {
@@ -234,8 +186,7 @@ function EditorMidias({ lote, novo }: { lote: Lote; novo: boolean }) {
   }
 
   function sair() {
-    // Vindo do Anunciar, a tela anterior é o formulário: troca esta tela pela do lote.
-    if (!novo && router.canGoBack()) router.back();
+    if (router.canGoBack()) router.back();
     else verLote(lote.id);
   }
 
@@ -251,76 +202,27 @@ function EditorMidias({ lote, novo }: { lote: Lote; novo: boolean }) {
     <ScrollView ref={rolagem} style={{ backgroundColor: tema.background }} contentContainerStyle={estilos.rolagem}>
       {enviando && <ManterTelaLigada />}
       <View style={estilos.coluna}>
-        {novo && (
-          <Aviso>
-            {`${
-              lote.status === 'ativo'
-                ? 'Anúncio publicado! Seu lote já aparece na busca.'
-                : 'Anúncio enviado! Seu lote vai ao ar depois de uma revisão rápida.'
-            } Agora coloque fotos e um vídeo: anúncio com foto chama muito mais compradores.`}
-          </Aviso>
-        )}
         <View style={estilos.bloco}>
           <Texto tipo="subtitulo">{lote.titulo}</Texto>
           <Texto cor="textSecondary">
             Até {MAX_FOTOS_LOTE} fotos e 1 vídeo de até 1 minuto. A primeira foto é a capa do anúncio.
           </Texto>
         </View>
-        <Aviso>{`Dica: ${DICA}`}</Aviso>
+        <DicaFotos />
 
         {fila.desligado && <Aviso tipo="erro">{fila.desligado}</Aviso>}
-        {permissao && <AvisoPermissao permissao={permissao} />}
+        {escolha.permissao && <AvisoPermissao permissao={escolha.permissao} />}
         {aviso && <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso>}
 
-        <View style={estilos.bloco}>
-          <Botao
-            titulo="Escolher fotos"
-            onPress={() => escolher('fotos')}
-            carregando={preparando === 'fotos'}
-            desabilitado={desligado || fotosRestantes === 0 || preparando !== null}
-          />
-          {Platform.OS !== 'web' && (
-            <Botao
-              titulo="Tirar foto"
-              variante="secundario"
-              onPress={() => escolher('camera')}
-              carregando={preparando === 'camera'}
-              desabilitado={desligado || fotosRestantes === 0 || preparando !== null}
-            />
-          )}
-          {!desligado && (
-            <Texto tipo="pequeno" cor="textSecondary">
-              {fotosRestantes === 0
-                ? `O lote já tem ${MAX_FOTOS_LOTE} fotos. Apague uma para colocar outra.`
-                : fotosRestantes === 1
-                  ? 'Cabe mais 1 foto.'
-                  : `Cabem mais ${fotosRestantes} fotos.`}
-            </Texto>
-          )}
-        </View>
-        <View style={estilos.bloco}>
-          <Botao
-            titulo="Escolher vídeo"
-            variante="secundario"
-            onPress={() => escolher('video')}
-            carregando={preparando === 'video'}
-            desabilitado={desligado || !podeVideo || preparando !== null}
-          />
-          {!desligado && !podeVideo && (
-            <Texto tipo="pequeno" cor="textSecondary">
-              O lote já tem um vídeo. Apague o atual para enviar outro.
-            </Texto>
-          )}
-        </View>
-
-        {preparando && (
-          <View style={estilos.preparando}>
-            <ActivityIndicator color={tema.brand} />
-            <Texto cor="textSecondary" accessibilityLiveRegion="polite" style={estilos.flex}>
-              {`Preparando ${{ fotos: 'as fotos', camera: 'a foto', video: 'o vídeo' }[preparando]}… Isso pode levar um pouco.`}
-            </Texto>
-          </View>
-        )}
+        <BotoesEscolha
+          aoEscolher={escolher}
+          preparando={escolha.preparando}
+          desabilitado={desligado}
+          fotosRestantes={fotosRestantes}
+          podeVideo={podeVideo}
+          semLugarFoto={`O lote já tem ${MAX_FOTOS_LOTE} fotos. Apague uma para colocar outra.`}
+          semLugarVideo="O lote já tem um vídeo. Apague o atual para enviar outro."
+        />
 
         {fila.itens.length > 0 && (
           <View style={estilos.bloco}>
@@ -380,30 +282,6 @@ function EditorMidias({ lote, novo }: { lote: Lote; novo: boolean }) {
         )}
       </View>
     </ScrollView>
-  );
-}
-
-function AvisoPermissao({ permissao }: { permissao: Permissao }) {
-  const ios = Platform.OS === 'ios';
-  let texto: string;
-  if (permissao.recurso === 'camera' && permissao.podePedirDeNovo) {
-    texto = 'O app precisa da sua permissão para usar a câmera. Toque em "Tirar foto" de novo e escolha "Permitir".';
-  } else if (permissao.recurso === 'camera') {
-    texto = ios
-      ? 'A câmera está bloqueada para o Arroba Direta. Para liberar, abra os Ajustes do iPhone, toque em Arroba Direta e ligue a Câmera.'
-      : 'A câmera está bloqueada para o Arroba Direta. Para liberar, abra as Configurações do celular, toque em Apps, depois em Arroba Direta e em Permissões, e permita a Câmera.';
-  } else {
-    texto = ios
-      ? 'As fotos estão bloqueadas para o Arroba Direta. Para liberar, abra os Ajustes do iPhone, toque em Arroba Direta, depois em Fotos, e escolha Acesso Total.'
-      : 'As fotos estão bloqueadas para o Arroba Direta. Para liberar, abra as Configurações do celular, toque em Apps, depois em Arroba Direta e em Permissões, e permita Fotos e vídeos.';
-  }
-  return (
-    <Aviso tipo="erro">
-      <Texto>{texto}</Texto>
-      {!permissao.podePedirDeNovo && (
-        <Botao titulo="Abrir ajustes do celular" variante="secundario" onPress={() => Linking.openSettings().catch(() => {})} />
-      )}
-    </Aviso>
   );
 }
 
@@ -478,120 +356,11 @@ function CartaoMidia({
   );
 }
 
-function LinhaEnvio({
-  item,
-  aoTentarDeNovo,
-  aoRemover,
-}: {
-  item: ItemEnvio;
-  aoTentarDeNovo: () => void;
-  aoRemover: () => void;
-}) {
-  const tema = useTheme();
-  const { arquivo } = item;
-  const foto = arquivo.tipo === 'foto';
-  const porcento = Math.round(item.progresso * 100);
-  const situacao = {
-    esperando: 'Na fila',
-    enviando: `Enviando… ${porcento}%`,
-    registrando: 'Salvando no anúncio…',
-    erro: item.erro ?? 'Não foi possível enviar.',
-  }[item.estado];
-  const detalhes = [
-    foto ? 'Foto' : 'Vídeo',
-    arquivo.duracaoSeg ? duracaoTexto(arquivo.duracaoSeg) : null,
-    arquivo.tamanho ? tamanhoTexto(arquivo.tamanho) : null,
-  ].filter(Boolean);
-
-  return (
-    <View
-      style={[
-        estilos.envio,
-        { backgroundColor: tema.backgroundElement, borderColor: item.estado === 'erro' ? tema.danger : tema.border },
-      ]}>
-      <View style={estilos.envioTopo}>
-        {foto ? (
-          <Image
-            source={{ uri: arquivo.uri }}
-            style={[estilos.previa, { backgroundColor: tema.backgroundSelected }]}
-            contentFit="cover"
-            accessibilityLabel=""
-          />
-        ) : (
-          <View style={[estilos.previa, estilos.centro, { backgroundColor: tema.backgroundSelected }]}>
-            <Texto tipo="pequeno" cor="brand">
-              ▶ Vídeo
-            </Texto>
-          </View>
-        )}
-        <View style={estilos.envioTextos}>
-          <Texto tipo="pequeno">{detalhes.join(' · ')}</Texto>
-          <Texto tipo="pequeno" cor={item.estado === 'erro' ? 'danger' : 'textSecondary'} accessibilityLiveRegion="polite">
-            {situacao}
-          </Texto>
-        </View>
-      </View>
-      {item.estado !== 'erro' && (
-        <View
-          accessibilityRole="progressbar"
-          accessibilityValue={{ min: 0, max: 100, now: porcento }}
-          style={[estilos.trilho, { backgroundColor: tema.backgroundSelected }]}>
-          <View style={[estilos.barra, { width: `${porcento}%`, backgroundColor: tema.brand }]} />
-        </View>
-      )}
-      {item.estado !== 'registrando' && (
-        <View style={estilos.envioBotoes}>
-          {item.estado === 'erro' && item.podeTentarDeNovo && (
-            <BotaoPequeno titulo="Tentar de novo" onPress={aoTentarDeNovo} />
-          )}
-          <BotaoPequeno titulo={item.estado === 'erro' ? 'Remover' : 'Cancelar'} tipo="perigo" onPress={aoRemover} />
-        </View>
-      )}
-    </View>
-  );
-}
-
-function BotaoPequeno({
-  titulo,
-  onPress,
-  tipo = 'normal',
-  desabilitado,
-}: {
-  titulo: string;
-  onPress: () => void;
-  tipo?: 'normal' | 'perigo' | 'perigoCheio';
-  desabilitado?: boolean;
-}) {
-  const tema = useTheme();
-  const cor = tipo === 'normal' ? tema.brand : tema.danger;
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={desabilitado}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: !!desabilitado }}
-      style={({ pressed }) => [
-        estilos.botaoPequeno,
-        { borderColor: cor, opacity: desabilitado ? 0.5 : pressed ? 0.7 : 1 },
-        tipo === 'perigoCheio' && { backgroundColor: cor },
-      ]}>
-      <Texto
-        tipo="pequeno"
-        cor={tipo === 'perigoCheio' ? 'onBrand' : tipo === 'perigo' ? 'danger' : 'brand'}
-        style={[estilos.negrito, estilos.textoCentro]}>
-        {titulo}
-      </Texto>
-    </Pressable>
-  );
-}
-
 const estilos = StyleSheet.create({
   rolagem: { padding: Spacing.three, paddingBottom: Spacing.five * 2, flexGrow: 1 },
   coluna: { width: '100%', maxWidth: LARGURA_MAXIMA, alignSelf: 'center', gap: Spacing.four, flexGrow: 1 },
   carregando: { flex: 1 },
-  flex: { flex: 1 },
   bloco: { gap: Spacing.two },
-  preparando: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   grade: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: Spacing.three },
   cartao: { gap: Spacing.two },
   miniatura: { borderRadius: 12, overflow: 'hidden' },
@@ -600,23 +369,5 @@ const estilos = StyleSheet.create({
   etiquetaBaixo: { bottom: Spacing.two },
   sobre: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   girando: { borderRadius: 999, padding: Spacing.two },
-  envio: { borderWidth: 1, borderRadius: 12, padding: Spacing.three, gap: Spacing.two },
-  envioTopo: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },
-  envioTextos: { flex: 1, gap: Spacing.one },
-  envioBotoes: { flexDirection: 'row', gap: Spacing.two },
-  previa: { width: 64, height: 48, borderRadius: 8, overflow: 'hidden' },
-  centro: { alignItems: 'center', justifyContent: 'center' },
-  trilho: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  barra: { height: '100%' },
-  botaoPequeno: {
-    flexGrow: 1,
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: Spacing.two,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   negrito: { fontWeight: '600' },
-  textoCentro: { textAlign: 'center' },
 });
