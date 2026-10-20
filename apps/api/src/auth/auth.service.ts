@@ -76,8 +76,10 @@ export class AuthService {
         .values({
           telefone,
           codigoHash: this.hashCodigo(telefone, codigo),
-          // Com SMS, o código só passa a valer depois que a Comtele aceita mandar (abaixo).
-          expiraEm: porSms ? sql`now()` : VALIDADE,
+          // Com SMS, o código só passa a valer depois que a Comtele aceita mandar (abaixo). Data bem no
+          // passado, e não now(): now() é a hora em que a transação começou, e um "entrar" que começou
+          // antes veria este código como válido.
+          expiraEm: porSms ? sql`'epoch'::timestamptz` : VALIDADE,
           ip,
           porSms,
         })
@@ -146,7 +148,14 @@ export class AuthService {
           valido: sql<boolean>`${codigosLogin.usadoEm} is null`,
         })
         .from(codigosLogin)
-        .where(and(eq(codigosLogin.telefone, telefone), gt(codigosLogin.expiraEm, sql`now()`)))
+        .where(
+          and(
+            eq(codigosLogin.telefone, telefone),
+            gt(codigosLogin.expiraEm, sql`now()`),
+            // Com SMS ligado, um código pedido na versão de teste (apareceu na tela) não vale mais.
+            this.envio.modo === 'sms' ? eq(codigosLogin.porSms, true) : undefined,
+          ),
+        )
         .orderBy(desc(codigosLogin.criadoEm))
         .limit(1)
         .for('update');

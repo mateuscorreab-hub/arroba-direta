@@ -144,6 +144,9 @@ describe('Login com o código por SMS (e2e)', () => {
     const { token } = (await entrar(telefone, codigoTeste, teste).expect(200)).body;
     await eu(token, teste).expect(200);
     await eu(token).expect(401);
+    // Nem o código que apareceu na tela vale com SMS ligado.
+    const outro = (await pedir(telefone, novoIp(), teste).expect(201)).body.codigoTeste;
+    await entrar(telefone, outro).expect(401);
 
     await pedir(telefone, novoIp()).expect(201);
     const login = await entrar(telefone, comtele.codigoPara(telefone)!).expect(200);

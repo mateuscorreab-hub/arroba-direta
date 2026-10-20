@@ -20,7 +20,8 @@ describe('lerConfigEnvio', () => {
   });
 
   it('recusa valor desconhecido', () => {
-    expect(() => lerConfigEnvio({ CODIGO_MODO: 'whatsapp' })).toThrow(/CODIGO_MODO inválido: "whatsapp"/);
+    expect(() => lerConfigEnvio({ CODIGO_MODO: 'whatsapp' })).toThrow(/CODIGO_MODO inválido/);
+    expect(() => lerConfigEnvio({ CODIGO_MODO: 'whatsapp' })).not.toThrow(/whatsapp/);
     expect(() => lerConfigEnvio({ CODIGO_MODO: 'SMS' })).toThrow(/CODIGO_MODO inválido/);
   });
 
@@ -46,6 +47,7 @@ describe('lerConfigEnvio', () => {
     expect(novo.modo === 'sms' && novo.comtele).toEqual({ chave: 'k', rota: 17, apiBase: 'https://api.comtele.com.br' });
     for (const ruim of ['0', 'premium', '1.5']) {
       expect(() => lerConfigEnvio({ ...sms, COMTELE_API_KEY: 'k', COMTELE_ROTA: ruim })).toThrow(/COMTELE_ROTA inválida/);
+      expect(() => lerConfigEnvio({ ...sms, COMTELE_API_KEY: 'k', COMTELE_ROTA: ruim })).not.toThrow(ruim);
     }
     const falsa = lerConfigEnvio({ ...sms, COMTELE_API_KEY: 'k', COMTELE_API_BASE: 'http://127.0.0.1:9/' });
     expect(falsa.modo === 'sms' && falsa.comtele.apiBase).toBe('http://127.0.0.1:9');
@@ -67,6 +69,7 @@ describe('lerConfigEnvio', () => {
     expect(lerConfigEnvio({ CODIGO_SMS_POR_DIA: ' 1000 ' }).limiteDiario).toBe(1000);
     for (const ruim of ['0', '-3', '2.5', 'muitos', '1.000', '1e3', '0x10']) {
       expect(() => lerConfigEnvio({ CODIGO_SMS_POR_DIA: ruim })).toThrow(/CODIGO_SMS_POR_DIA inválido/);
+      expect(() => lerConfigEnvio({ CODIGO_SMS_POR_DIA: ruim })).not.toThrow(`"${ruim}"`);
     }
   });
 });

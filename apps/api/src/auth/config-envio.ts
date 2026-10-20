@@ -38,7 +38,8 @@ const ONDE_FICA_A_CHAVE =
 
 /**
  * Lê CODIGO_MODO, CODIGO_SEGREDO, CODIGO_SMS_POR_DIA e, com SMS, COMTELE_API_KEY e COMTELE_ROTA.
- * Lança erro (e a API não sobe) com valor inválido ou faltando. As mensagens nunca repetem os segredos.
+ * Lança erro (e a API não sobe) com valor inválido ou faltando. As mensagens nunca repetem os valores: a
+ * chave da Comtele colada na variável errada iria parar no log.
  */
 export function lerConfigEnvio(env: Record<string, string | undefined> = process.env): ConfigEnvio {
   const modo = lerModo(env);
@@ -58,7 +59,7 @@ export function lerConfigEnvio(env: Record<string, string | undefined> = process
   // Só algarismos: "1.000" (mil, do jeito brasileiro) viraria 1 com Number().
   const limiteDiario = porDia ? Number(porDia) : SMS_POR_DIA_PADRAO;
   if ((porDia && !/^\d+$/.test(porDia)) || limiteDiario < 1) {
-    throw new Error(`CODIGO_SMS_POR_DIA inválido: "${porDia}". Use só algarismos, sem ponto, maior que zero (ex.: 1000).`);
+    throw new Error('CODIGO_SMS_POR_DIA inválido. Use só algarismos, sem ponto, maior que zero (ex.: 1000).');
   }
 
   // Na versão de teste sem a variável, uma chave nova a cada vez que a API sobe: o código pedido antes
@@ -77,7 +78,7 @@ function lerComtele(env: Record<string, string | undefined>): ConfigComtele {
   const textoRota = env.COMTELE_ROTA?.trim();
   const rota = textoRota ? Number(textoRota) : null;
   if (rota !== null && (!Number.isInteger(rota) || rota < 1)) {
-    throw new Error(`COMTELE_ROTA inválida: "${textoRota}". Use o número da rota (ou apague a variável no painel antigo).`);
+    throw new Error('COMTELE_ROTA inválida. Use o número da rota (ou apague a variável no painel antigo).');
   }
 
   const base = env.COMTELE_API_BASE?.trim();
@@ -101,5 +102,5 @@ function lerModo(env: Record<string, string | undefined>): ModoEnvio {
     return 'teste';
   }
   if (modo === 'teste' || modo === 'sms') return modo;
-  throw new Error(`CODIGO_MODO inválido: "${modo}". Use "sms" ou "teste".`);
+  throw new Error('CODIGO_MODO inválido. Use "sms" ou "teste".');
 }
