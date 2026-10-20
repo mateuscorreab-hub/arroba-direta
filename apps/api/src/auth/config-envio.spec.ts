@@ -64,7 +64,8 @@ describe('lerConfigEnvio', () => {
 
   it('lê o limite de SMS por dia', () => {
     expect(lerConfigEnvio({ CODIGO_SMS_POR_DIA: '50' }).limiteDiario).toBe(50);
-    for (const ruim of ['0', '-3', '2.5', 'muitos']) {
+    expect(lerConfigEnvio({ CODIGO_SMS_POR_DIA: ' 1000 ' }).limiteDiario).toBe(1000);
+    for (const ruim of ['0', '-3', '2.5', 'muitos', '1.000', '1e3', '0x10']) {
       expect(() => lerConfigEnvio({ CODIGO_SMS_POR_DIA: ruim })).toThrow(/CODIGO_SMS_POR_DIA inválido/);
     }
   });

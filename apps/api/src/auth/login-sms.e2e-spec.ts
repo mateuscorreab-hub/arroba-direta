@@ -30,6 +30,8 @@ describe('Login com o código por SMS (e2e)', () => {
   let app: INestApplication;
   /** Com só 3 SMS por dia, para testar o teto. */
   let apertado: INestApplication;
+  /** Versão de teste (código na tela), no mesmo banco. */
+  let teste: INestApplication;
   let db: Db;
   const telefones: string[] = [];
 
@@ -44,8 +46,11 @@ describe('Login com o código por SMS (e2e)', () => {
   function pedir(telefone: string, ip: string, servidor = app) {
     return request(servidor.getHttpServer()).post('/auth/codigo').set('CF-Connecting-IP', ip).send({ telefone });
   }
-  function entrar(telefone: string, codigo: string) {
-    return request(app.getHttpServer()).post('/auth/entrar').send({ telefone, codigo });
+  function entrar(telefone: string, codigo: string, servidor = app) {
+    return request(servidor.getHttpServer()).post('/auth/entrar').send({ telefone, codigo });
+  }
+  function eu(token: string, servidor = app) {
+    return request(servidor.getHttpServer()).get('/eu').set('Authorization', `Bearer ${token}`);
   }
 
   beforeAll(async () => {
@@ -58,6 +63,7 @@ describe('Login com o código por SMS (e2e)', () => {
     };
     app = await subir(sms);
     apertado = await subir({ ...sms, CODIGO_SMS_POR_DIA: '3' });
+    teste = await subir({ CODIGO_MODO: 'teste', CODIGO_SEGREDO: SEGREDO });
     db = app.get(DB);
   });
 
@@ -66,6 +72,7 @@ describe('Login com o código por SMS (e2e)', () => {
     await db.delete(codigosLogin).where(inArray(codigosLogin.telefone, telefones));
     await app.close();
     await apertado.close();
+    await teste.close();
     await comtele.fechar();
   });
 
@@ -79,6 +86,9 @@ describe('Login com o código por SMS (e2e)', () => {
     const ip = novoIp();
     const res = await pedir(telefone, ip).expect(201);
     expect(Object.keys(res.body)).toEqual(['expiraEm']);
+    const minutos = (Date.parse(res.body.expiraEm) - Date.now()) / 60_000;
+    expect(minutos).toBeGreaterThan(9);
+    expect(minutos).toBeLessThanOrEqual(10);
 
     expect(comtele.recebidos).toHaveLength(1);
     expect(comtele.recebidos[0]).toMatchObject({
@@ -96,9 +106,10 @@ describe('Login com o código por SMS (e2e)', () => {
 
     const login = await entrar(telefone, codigo!).expect(200);
     expect(login.body.usuario.telefone).toBe(telefone);
+    await eu(login.body.token).expect(200);
   });
 
-  it('se a Comtele recusa, responde 503 e o código que não chegou não vale nem gasta o limite', async () => {
+  it('se a Comtele recusa, responde 503: o código recusado nunca vale, o anterior continua valendo e o pedido conta no limite', async () => {
     const telefone = novoTelefone();
     const ip = novoIp();
     await pedir(telefone, ip).expect(201);
@@ -106,15 +117,37 @@ describe('Login com o código por SMS (e2e)', () => {
 
     comtele.falhas = [{ status: 400, corpo: { Success: false, Message: 'é necessário ao menos 1 créditos.' } }];
     expect((await pedir(telefone, ip).expect(503)).body).toEqual(SEM_SMS);
-    const linhas = await db.select().from(codigosLogin).where(eq(codigosLogin.telefone, telefone));
-    expect(linhas).toHaveLength(1);
+    const recusado = comtele.codigoPara(telefone)!;
+    expect(recusado).not.toBe(primeiro);
+    expect(await db.select().from(codigosLogin).where(eq(codigosLogin.telefone, telefone))).toHaveLength(2);
 
-    // O código que chegou antes continua valendo.
+    await entrar(telefone, recusado).expect(401);
     await entrar(telefone, primeiro).expect(200);
-    // E as falhas não contam no limite de 5 por hora do número.
-    comtele.falhas = Array.from({ length: 5 }, () => ({ status: 500, corpo: null }));
-    for (let i = 0; i < 5; i++) await pedir(telefone, ip).expect(503);
-    await pedir(telefone, ip).expect(201);
+
+    // As recusas contam no limite de 5 por hora do número: quem dispara pedidos não ganha pedidos extras.
+    comtele.falhas = Array.from({ length: 3 }, () => ({ status: 401, corpo: null }));
+    for (let i = 0; i < 3; i++) await pedir(telefone, ip).expect(503);
+    await pedir(telefone, ip).expect(429);
+  });
+
+  it('se a Comtele falha sem dizer se mandou, o código vale: o SMS pode ter chegado', async () => {
+    const telefone = novoTelefone();
+    comtele.falhas = [{ status: 502, corpo: null }];
+    const res = await pedir(telefone, novoIp()).expect(201);
+    expect(Object.keys(res.body)).toEqual(['expiraEm']);
+    await entrar(telefone, comtele.codigoPara(telefone)!).expect(200);
+  });
+
+  it('com SMS ligado, quem entrou pela versão de teste precisa entrar de novo', async () => {
+    const telefone = novoTelefone();
+    const { codigoTeste } = (await pedir(telefone, novoIp(), teste).expect(201)).body;
+    const { token } = (await entrar(telefone, codigoTeste, teste).expect(200)).body;
+    await eu(token, teste).expect(200);
+    await eu(token).expect(401);
+
+    await pedir(telefone, novoIp()).expect(201);
+    const login = await entrar(telefone, comtele.codigoPara(telefone)!).expect(200);
+    await eu(login.body.token).expect(200);
   });
 
   it('limita a 10 pedidos por dia para o mesmo número, mesmo espaçados', async () => {
@@ -134,12 +167,23 @@ describe('Login com o código por SMS (e2e)', () => {
     expect(comtele.recebidos).toHaveLength(4);
   });
 
-  it('limita a 20 pedidos por hora vindos da mesma conexão, mesmo para números diferentes', async () => {
+  it('limita a 20 pedidos por dia vindos da mesma conexão, mesmo para números diferentes', async () => {
     const ip = novoIp();
-    for (let i = 0; i < 20; i++) await pedir(novoTelefone(), ip).expect(201);
+    // 15 pedidos de horas atrás, de números diferentes: contam no limite do dia.
+    await db.insert(codigosLogin).values(
+      Array.from({ length: 15 }, () => ({
+        telefone: novoTelefone(),
+        codigoHash: 'antigo',
+        expiraEm: sql`now() - interval '5 hours'`,
+        criadoEm: sql`now() - interval '6 hours'`,
+        ip,
+        porSms: true,
+      })),
+    );
+    for (let i = 0; i < 5; i++) await pedir(novoTelefone(), ip).expect(201);
     const res = await pedir(novoTelefone(), ip).expect(429);
     expect(res.body).toEqual({ mensagem: 'Você pediu muitos códigos. Espere um pouco e tente de novo.' });
-    expect(comtele.recebidos).toHaveLength(20);
+    expect(comtele.recebidos).toHaveLength(5);
     // Outra conexão continua pedindo, e trocar o X-Forwarded-For não muda a conexão.
     await pedir(novoTelefone(), novoIp()).expect(201);
     await request(app.getHttpServer())

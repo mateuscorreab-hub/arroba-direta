@@ -55,9 +55,10 @@ export function lerConfigEnvio(env: Record<string, string | undefined> = process
   }
 
   const porDia = env.CODIGO_SMS_POR_DIA?.trim();
+  // Só algarismos: "1.000" (mil, do jeito brasileiro) viraria 1 com Number().
   const limiteDiario = porDia ? Number(porDia) : SMS_POR_DIA_PADRAO;
-  if (!Number.isInteger(limiteDiario) || limiteDiario < 1) {
-    throw new Error(`CODIGO_SMS_POR_DIA inválido: "${porDia}". Use um número inteiro maior que zero.`);
+  if ((porDia && !/^\d+$/.test(porDia)) || limiteDiario < 1) {
+    throw new Error(`CODIGO_SMS_POR_DIA inválido: "${porDia}". Use só algarismos, sem ponto, maior que zero (ex.: 1000).`);
   }
 
   // Na versão de teste sem a variável, uma chave nova a cada vez que a API sobe: o código pedido antes

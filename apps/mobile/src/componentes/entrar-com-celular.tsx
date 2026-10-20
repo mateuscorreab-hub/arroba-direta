@@ -60,7 +60,7 @@ function PassoTelefone({
   return (
     <View style={estilos.passo}>
       <Texto tipo="titulo">Entre com seu celular</Texto>
-      <Texto cor="textSecondary">Você recebe um código por SMS para entrar. Não precisa de senha.</Texto>
+      <Texto cor="textSecondary">Você recebe um código para entrar. Não precisa de senha.</Texto>
       <CampoTexto
         rotulo="Número do celular com DDD"
         placeholder="(67) 99999-0001"

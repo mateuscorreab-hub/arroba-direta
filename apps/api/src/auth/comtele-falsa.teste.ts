@@ -10,8 +10,8 @@ export interface SmsRecebido {
 /** Comtele de mentira para os testes: guarda o que chegou e responde como as duas APIs dela. */
 export class ComteleFalsa {
   readonly recebidos: SmsRecebido[] = [];
-  /** Próximas respostas: status HTTP e corpo. Vazio: sucesso. */
-  falhas: { status: number; corpo: unknown }[] = [];
+  /** Próximas respostas: status HTTP, corpo e quanto demora para responder. Vazio: sucesso na hora. */
+  falhas: { status: number; corpo: unknown; atrasoMs?: number }[] = [];
   base = '';
   private servidor?: Server;
 
@@ -30,8 +30,11 @@ export class ComteleFalsa {
           : novo
             ? { hasError: false, message: 'ok', totalRecords: 1, errors: [], object: null }
             : { Success: true, Object: { requestUniqueId: 'teste' }, Message: 'A requisicao de envio foi encaminhada.' };
-        res.writeHead(falha?.status ?? 200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify(corpo));
+        setTimeout(() => {
+          if (res.destroyed) return;
+          res.writeHead(falha?.status ?? 200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify(corpo));
+        }, falha?.atrasoMs ?? 0);
       });
     });
     await new Promise<void>((ok) => this.servidor!.listen(0, '127.0.0.1', ok));
@@ -50,6 +53,7 @@ export class ComteleFalsa {
   }
 
   async fechar() {
+    this.servidor?.closeAllConnections();
     await new Promise((ok) => this.servidor?.close(ok));
   }
 }

@@ -34,9 +34,6 @@ services:
       # Chave dos códigos guardados no banco (HMAC). O Render cria sozinho; não precisa ver nem copiar.
       - key: CODIGO_SEGREDO
         generateValue: true
-      # Teto de SMS por dia, somando todos os números: segura o gasto se alguém disparar pedidos de código.
-      - key: CODIGO_SMS_POR_DIA
-        value: "50"
       # Conta na Comtele, que manda o SMS. A chave não fica neste arquivo: preencha no painel do Render
       # (arroba-api > Environment) com a do painel da Comtele (no antigo, API > Chave de API; no novo,
       # Configurações > Chaves de API). COMTELE_ROTA só no painel novo: o número da rota de envio.

@@ -50,6 +50,13 @@
       "when": 1792443909704,
       "tag": "0006_lyrical_moira_mactaggert",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792461538768,
+      "tag": "0007_colossal_ultimo",
+      "breakpoints": true
     }
   ]
 }

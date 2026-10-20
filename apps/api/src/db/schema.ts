@@ -85,6 +85,8 @@ export const sessoes = pgTable('sessoes', {
   tokenHash: text('token_hash').notNull().unique(),
   expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
   revogadaEm: timestamp('revogada_em', { withTimezone: true }),
+  /** Entrou com código que chegou por SMS. Com SMS ligado, as sessões da versão de teste não valem. */
+  porSms: boolean('por_sms').notNull().default(false),
   criadoEm: criadoEm(),
 });
 

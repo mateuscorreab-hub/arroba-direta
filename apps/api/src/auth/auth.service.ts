@@ -19,7 +19,7 @@ import {
 import { DB, type Db } from '../db/db.module.js';
 import { codigosLogin, sessoes, usuarios } from '../db/schema.js';
 import { CONFIG_ENVIO, type ConfigEnvio } from './config-envio.js';
-import { ENVIO_SMS, finalDoTelefone, textoDoSms, type EnvioSms } from './envio-sms.js';
+import { ENVIO_SMS, finalDoTelefone, SmsRecusado, textoDoSms, type EnvioSms } from './envio-sms.js';
 
 export type Usuario = typeof usuarios.$inferSelect;
 export interface SessaoAtual {
@@ -30,9 +30,10 @@ export interface SessaoAtual {
 const PEDIDOS_POR_HORA = 5;
 /** Com SMS: por número em 24 horas, para ninguém usar o app para encher de SMS o celular de outra pessoa. */
 const PEDIDOS_POR_DIA = 10;
-/** Por conexão (IPv6: por bloco /64), só com SMS. Folgado para várias pessoas atrás do mesmo IP da operadora. */
-const PEDIDOS_POR_IP_HORA = 20;
+/** Por conexão (IPv6: por bloco /64) em 24 horas, só com SMS. Folgado para várias pessoas atrás do mesmo IP da operadora. */
+const PEDIDOS_POR_IP_DIA = 20;
 const TENTATIVAS_POR_CODIGO = 5;
+const VALIDADE = sql`now() + interval '10 minutes'`;
 
 @Injectable()
 export class AuthService {
@@ -64,7 +65,7 @@ export class AuthService {
         if ((await contar(eq(codigosLogin.telefone, telefone), gt(codigosLogin.criadoEm, ultimoDia))) >= PEDIDOS_POR_DIA) {
           return 'telefone' as const;
         }
-        if (ip && (await contar(eq(codigosLogin.ip, ip), gt(codigosLogin.criadoEm, ultimaHora))) >= PEDIDOS_POR_IP_HORA) {
+        if (ip && (await contar(eq(codigosLogin.ip, ip), gt(codigosLogin.criadoEm, ultimoDia))) >= PEDIDOS_POR_IP_DIA) {
           return 'conexao' as const;
         }
         const noDia = await contar(eq(codigosLogin.porSms, true), gt(codigosLogin.criadoEm, ultimoDia));
@@ -75,7 +76,8 @@ export class AuthService {
         .values({
           telefone,
           codigoHash: this.hashCodigo(telefone, codigo),
-          expiraEm: sql`now() + interval '10 minutes'`,
+          // Com SMS, o código só passa a valer depois que a Comtele aceita mandar (abaixo).
+          expiraEm: porSms ? sql`now()` : VALIDADE,
           ip,
           porSms,
         })
@@ -92,44 +94,59 @@ export class AuthService {
     if (resultado === 'dia') {
       this.logger.error(
         `Limite de ${this.envio.limiteDiario} SMS em 24 horas atingido: os pedidos de código estão recusados. ` +
-          'Se o movimento for de verdade, aumente CODIGO_SMS_POR_DIA.',
+          'Se o movimento for de verdade, aumente CODIGO_SMS_POR_DIA no Render (arroba-api > Environment).',
       );
       throw new ServiceUnavailableException({
         mensagem: 'O envio de códigos está pausado por um tempo. Tente de novo mais tarde.',
       });
     }
 
+    let expiraEm = resultado.expiraEm;
     if (porSms && this.sms) {
       try {
         await this.sms.enviar(telefone, textoDoSms(codigo));
       } catch (e) {
-        // O código que não chegou sai da conta: não gasta o limite e o anterior (se ainda valer) volta a valer.
-        await this.db.delete(codigosLogin).where(eq(codigosLogin.id, resultado.id));
-        this.logger.error(`Não deu para enviar o SMS para ${finalDoTelefone(telefone)}: ${(e as Error).message}`);
-        throw new ServiceUnavailableException({
-          mensagem: 'Não conseguimos enviar o SMS agora. Tente de novo em alguns minutos.',
-        });
+        const motivo = `${finalDoTelefone(telefone)}: ${(e as Error).message}`;
+        // Recusa certa: o código não chegou e nunca vale, mas o pedido conta nos limites. O código
+        // anterior, se ainda valer, continua valendo.
+        if (e instanceof SmsRecusado) {
+          this.logger.error(`A Comtele recusou o SMS para ${motivo}`);
+          throw new ServiceUnavailableException({
+            mensagem: 'Não conseguimos enviar o SMS agora. Tente de novo em alguns minutos.',
+          });
+        }
+        // Sem resposta clara (demora, rede, falha do lado da Comtele): o SMS pode ter saído, então o
+        // código vale como se tivesse chegado.
+        this.logger.warn(`Sem confirmação do SMS para ${motivo}`);
       }
+      const [ativo] = await this.db
+        .update(codigosLogin)
+        .set({ expiraEm: VALIDADE })
+        .where(eq(codigosLogin.id, resultado.id))
+        .returning({ expiraEm: codigosLogin.expiraEm });
+      expiraEm = ativo.expiraEm;
     }
     return {
-      expiraEm: resultado.expiraEm.toISOString(),
+      expiraEm: expiraEm.toISOString(),
       codigoTeste: porSms ? undefined : codigo,
     };
   }
 
   async entrar(telefone: string, codigo: string): Promise<RespostaEntrar> {
     const resultado = await this.db.transaction(async (tx) => {
-      // Só vale o código mais recente. A linha fica travada até o fim, então tentativas
+      // Só vale o código mais recente entre os que chegaram (com SMS, um código recusado pela
+      // Comtele nunca passa a valer). A linha fica travada até o fim, então tentativas
       // simultâneas são contadas uma a uma e o mesmo código não entra duas vezes.
       const [atual] = await tx
         .select({
           id: codigosLogin.id,
           codigoHash: codigosLogin.codigoHash,
           tentativas: codigosLogin.tentativas,
-          valido: sql<boolean>`${codigosLogin.usadoEm} is null and ${codigosLogin.expiraEm} > now()`,
+          porSms: codigosLogin.porSms,
+          valido: sql<boolean>`${codigosLogin.usadoEm} is null`,
         })
         .from(codigosLogin)
-        .where(eq(codigosLogin.telefone, telefone))
+        .where(and(eq(codigosLogin.telefone, telefone), gt(codigosLogin.expiraEm, sql`now()`)))
         .orderBy(desc(codigosLogin.criadoEm))
         .limit(1)
         .for('update');
@@ -156,6 +173,7 @@ export class AuthService {
         usuarioId: usuario.id,
         tokenHash: sha256(token),
         expiraEm: sql`now() + interval '90 days'`,
+        porSms: atual.porSms,
       });
       return { token, usuario: paraEu(usuario) };
     });
@@ -180,6 +198,9 @@ export class AuthService {
           eq(sessoes.tokenHash, sha256(token)),
           isNull(sessoes.revogadaEm),
           gt(sessoes.expiraEm, sql`now()`),
+          // Com SMS ligado, quem entrou na versão de teste (o código aparecia na tela, então qualquer um
+          // entrava em qualquer número) precisa entrar de novo, agora com o código que chega no celular.
+          this.envio.modo === 'sms' ? eq(sessoes.porSms, true) : undefined,
         ),
       );
     return sessao ?? null;

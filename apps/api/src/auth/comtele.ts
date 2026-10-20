@@ -1,5 +1,5 @@
 import type { ConfigComtele } from './config-envio.js';
-import type { EnvioSms } from './envio-sms.js';
+import { SmsRecusado, type EnvioSms } from './envio-sms.js';
 
 const ESPERA_MS = 10_000;
 
@@ -11,7 +11,10 @@ const ESPERA_MS = 10_000;
  * Documentação: docs.comtele.com.br (antigo) e developers.comtele.com.br (novo).
  */
 export class EnvioComtele implements EnvioSms {
-  constructor(private readonly cfg: ConfigComtele) {}
+  constructor(
+    private readonly cfg: ConfigComtele,
+    private readonly esperaMs = ESPERA_MS,
+  ) {}
 
   async enviar(telefone: string, texto: string): Promise<void> {
     const comPais = telefone.replace(/^\+/, '');
@@ -24,13 +27,17 @@ export class EnvioComtele implements EnvioSms {
           ? { receivers: [Number(comPais)], message: texto, route: this.cfg.rota, tag: 'login' }
           : { Sender: 'login', Receivers: comPais.slice(2), Content: texto },
       ),
-      signal: AbortSignal.timeout(ESPERA_MS),
+      signal: AbortSignal.timeout(this.esperaMs),
     });
     const corpo = (await res.json().catch(() => null)) as Resposta | null;
     // 200 com Success=false (antigo) ou hasError=true (novo) também é recusa: falta de crédito, por exemplo.
-    if (res.ok && corpo?.Success !== false && corpo?.hasError !== true) return;
+    const recusou = corpo?.Success === false || corpo?.hasError === true;
+    if (res.ok && !recusou) return;
     const motivo = [corpo?.Message, corpo?.message, ...(corpo?.errors ?? [])].filter(Boolean).join(' ');
-    throw new Error(`Comtele respondeu ${res.status}${motivo ? `: ${motivo.slice(0, 200)}` : ''}`);
+    const erro = `Comtele respondeu ${res.status}${motivo ? `: ${motivo.slice(0, 200)}` : ''}`;
+    // 5xx sem recusa explícita: a Comtele pode ter mandado antes de falhar.
+    if (recusou || res.status < 500) throw new SmsRecusado(erro);
+    throw new Error(erro);
   }
 }
 
