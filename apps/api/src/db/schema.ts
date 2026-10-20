@@ -53,7 +53,7 @@ export const usuarios = pgTable('usuarios', {
   criadoEm: criadoEm(),
 });
 
-/** Códigos de login enviados por SMS/WhatsApp. Guardamos só o hash. */
+/** Códigos de login enviados por SMS. Guardamos só o hash (HMAC com CODIGO_SEGREDO). */
 export const codigosLogin = pgTable(
   'codigos_login',
   {
@@ -63,9 +63,17 @@ export const codigosLogin = pgTable(
     tentativas: integer('tentativas').notNull().default(0),
     expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
     usadoEm: timestamp('usado_em', { withTimezone: true }),
+    /** De onde veio o pedido (IPv6 como bloco /64), para o limite por conexão. */
+    ip: text('ip'),
+    /** Saiu por SMS (pago); na versão de teste o código só aparece na tela. */
+    porSms: boolean('por_sms').notNull().default(false),
     criadoEm: criadoEm(),
   },
-  (t) => [index('codigos_login_telefone_idx').on(t.telefone, t.criadoEm)],
+  (t) => [
+    index('codigos_login_telefone_idx').on(t.telefone, t.criadoEm),
+    index('codigos_login_ip_idx').on(t.ip, t.criadoEm),
+    index('codigos_login_sms_idx').on(t.criadoEm).where(sql`${t.porSms}`),
+  ],
 );
 
 /** Sessões abertas. O token só existe no aparelho; aqui fica o hash. */
@@ -77,6 +85,8 @@ export const sessoes = pgTable('sessoes', {
   tokenHash: text('token_hash').notNull().unique(),
   expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
   revogadaEm: timestamp('revogada_em', { withTimezone: true }),
+  /** Entrou com código que chegou por SMS. Com SMS ligado, as sessões da versão de teste não valem. */
+  porSms: boolean('por_sms').notNull().default(false),
   criadoEm: criadoEm(),
 });
 

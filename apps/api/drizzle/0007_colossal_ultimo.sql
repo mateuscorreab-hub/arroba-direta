@@ -1,0 +1,1 @@
+ALTER TABLE "sessoes" ADD COLUMN "por_sms" boolean DEFAULT false NOT NULL;

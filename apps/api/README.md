@@ -12,7 +12,20 @@ pnpm test:e2e       # testes contra o banco (rode migrate e seed antes)
 
 O schema do banco fica em `src/db/schema.ts`. A busca por distância usa haversine em SQL; quando o volume crescer, migrar para PostGIS (a imagem do `docker-compose.yml` já tem a extensão).
 
-Login (`src/auth/`): `POST /auth/codigo` gera o código e `POST /auth/entrar` o troca por um token, usado em `Authorization: Bearer <token>`. A variável `CODIGO_MODO` diz como o código chega ao usuário; hoje só existe `teste` (o código volta na resposta e o app mostra na tela). Sem ela a API usa `teste`, exceto com `NODE_ENV=production`, em que não sobe.
+Login (`src/auth/`): `POST /auth/codigo` gera o código e `POST /auth/entrar` o troca por um token, usado em `Authorization: Bearer <token>`. A variável `CODIGO_MODO` diz como o código chega ao usuário: `sms` (pela Comtele, em `src/auth/comtele.ts`) ou `teste` (o código volta na resposta e o app mostra na tela). Sem ela a API usa `teste`, exceto com `NODE_ENV=production`, em que não sobe. O código fica no banco como HMAC com `CODIGO_SEGREDO` (pelo menos 32 caracteres; obrigatório com SMS, e sem ele a versão de teste cria uma chave nova a cada vez que sobe).
+
+Limites de `POST /auth/codigo`: 5 pedidos por hora por telefone, sempre. Com SMS, também 10 por dia por telefone (para ninguém usar o app para encher de SMS o celular de outra pessoa), 20 por dia por conexão (IPv6 conta pelo bloco /64) e `CODIGO_SMS_POR_DIA` no total em 24 horas (padrão 100); passou do teto do dia, a API responde 503 e escreve um erro no log. O IP vem de `CF-Connecting-IP` ou `True-Client-IP`, que a Cloudflare põe na frente do Render (o `X-Forwarded-For` a pessoa pode inventar); sem eles, vale o endereço da conexão (`src/auth/ip-do-cliente.ts`). Cada pedido guarda o IP e se saiu por SMS em `codigos_login` (migração 0006). Com SMS, o código só passa a valer quando a Comtele aceita mandar. Se ela recusar (falta de crédito, chave errada), a API responde 503 e o código nunca vale, mas o pedido conta nos limites; o código anterior, se ainda valer, continua valendo. Se ela não responder em 10 segundos ou falhar sem dizer se mandou, o SMS pode ter saído: o código vale e a API responde como se tivesse mandado, com um aviso no log. Só vale o código mais recente entre os que valem.
+
+Ligar o SMS:
+
+1. Conta na Comtele (aceita CPF), com crédito pré-pago e sem recarga automática: o saldo é o teto de gasto.
+2. No Render (arroba-api > Environment), `COMTELE_API_KEY` com a chave do painel da Comtele. No painel novo (portal.comtele.com.br), também `COMTELE_ROTA` com o número da rota; sem ela a API usa a do painel antigo (sms.comtele.com.br). `CODIGO_SEGREDO` o Render cria sozinho (`generateValue` no `render.yaml`).
+3. Trocar `CODIGO_MODO` para `sms` no `render.yaml`. Com `sms` e sem `COMTELE_API_KEY` ou `CODIGO_SEGREDO`, a API não sobe e o log diz o que falta.
+4. As sessões abertas na versão de teste deixam de valer (`sessoes.por_sms`, migração 0007): todo mundo entra de novo com o código por SMS. As contas e anúncios criados na versão de teste continuam no banco; como nela qualquer um entrava em qualquer número, apague esses dados (ou comece com um banco novo) antes de chamar gente de verdade.
+
+O teto do dia (`CODIGO_SMS_POR_DIA`, padrão 100) muda no painel do Render (arroba-api > Environment), sem mexer no `render.yaml`. Só algarismos, sem ponto (`1000`, não `1.000`).
+
+Para testar o envio sem a Comtele, `COMTELE_API_BASE` aponta para outro servidor (os testes usam `src/auth/comtele-falsa.teste.ts`).
 
 Anúncios: `APROVACAO_LOTES` diz se o lote criado em `POST /lotes` fica `em_analise` (`manual`, o padrão) ou já sai `ativo` (`automatica`, usado na versão de teste). Valor inválido impede a API de subir.
 
