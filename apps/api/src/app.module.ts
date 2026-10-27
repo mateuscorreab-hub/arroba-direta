@@ -5,6 +5,7 @@ import { AuthService } from './auth/auth.service.js';
 import { EnvioComtele } from './auth/comtele.js';
 import { CONFIG_ENVIO, lerConfigEnvio, type ConfigEnvio } from './auth/config-envio.js';
 import { ENVIO_SMS } from './auth/envio-sms.js';
+import { RegistrosAcessoService } from './auth/registros-acesso.service.js';
 import { DbModule } from './db/db.module.js';
 import { APROVACAO_LOTES, lerAprovacaoLotes } from './lotes/aprovacao-lotes.js';
 import { LotesController, MeusLotesController } from './lotes/lotes.controller.js';
@@ -50,6 +51,7 @@ import { SaudeController } from './saude/saude.controller.js';
     },
     { provide: APROVACAO_LOTES, useFactory: () => lerAprovacaoLotes() },
     AuthService,
+    RegistrosAcessoService,
     LotesService,
     MidiasService,
     NegociacaoService,

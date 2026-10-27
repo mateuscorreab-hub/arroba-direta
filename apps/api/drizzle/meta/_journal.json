@@ -57,6 +57,13 @@
       "when": 1792461538768,
       "tag": "0007_colossal_ultimo",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793126732750,
+      "tag": "0008_white_exodus",
+      "breakpoints": true
     }
   ]
 }

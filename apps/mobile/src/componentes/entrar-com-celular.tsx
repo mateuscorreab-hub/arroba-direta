@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { CODIGO_DIGITOS, entrarSchema, formatarTelefone, solicitarCodigoSchema } from '@arroba/shared';
@@ -7,6 +8,7 @@ import { Botao } from '@/componentes/botao';
 import { CampoTexto } from '@/componentes/campo-texto';
 import { Texto } from '@/componentes/texto';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { ErroApi, textoDoErro } from '@/lib/api';
 import { mascararTelefone } from '@/lib/formato';
 import { useSessao } from '@/lib/sessao';
@@ -35,6 +37,7 @@ function PassoTelefone({
   aoEnviar: (e: Envio) => void;
 }) {
   const sessao = useSessao();
+  const tema = useTheme();
   const [erro, setErro] = useState<string | undefined>();
   const [enviando, setEnviando] = useState(false);
 
@@ -79,6 +82,17 @@ function PassoTelefone({
         erro={erro}
       />
       <Botao titulo="Receber código" onPress={receberCodigo} carregando={enviando} />
+      <Texto tipo="pequeno" cor="textSecondary">
+        Ao continuar, você concorda com os{' '}
+        <Link href="/termos" style={[estilos.link, { color: tema.brand }]}>
+          Termos de uso
+        </Link>{' '}
+        e a{' '}
+        <Link href="/privacidade" style={[estilos.link, { color: tema.brand }]}>
+          Política de privacidade
+        </Link>
+        .
+      </Texto>
     </View>
   );
 }
@@ -199,6 +213,7 @@ function PassoCodigo({
 const estilos = StyleSheet.create({
   passo: { gap: Spacing.three },
   negrito: { fontWeight: '700' },
+  link: { fontWeight: '600', textDecorationLine: 'underline' },
   codigoTeste: { fontSize: 40, lineHeight: 48, fontWeight: '700', letterSpacing: 8, textAlign: 'center' },
   entradaCodigo: { fontSize: 28, letterSpacing: 8, textAlign: 'center' },
 });

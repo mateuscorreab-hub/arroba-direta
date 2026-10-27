@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "Arroba Direta", template: "%s | Arroba Direta" },
   description:
-    "Compre e venda gado direto com outros pecuaristas, com documentação em dia.",
+    "Compre e venda gado direto com outros pecuaristas.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -26,8 +26,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </nav>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
-        <footer className="border-t border-borda py-6 text-center text-sm text-suave">
-          Arroba Direta · conectando pecuaristas do Brasil
+        <footer className="space-y-2 border-t border-borda py-6 text-center text-sm text-suave">
+          <p>Arroba Direta · conectando pecuaristas do Brasil</p>
+          <nav className="flex justify-center gap-4">
+            <Link href="/termos">Termos de uso</Link>
+            <Link href="/privacidade">Política de privacidade</Link>
+          </nav>
         </footer>
       </body>
     </html>

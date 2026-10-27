@@ -23,8 +23,8 @@ export default function Inicio() {
           Gado direto de pecuarista para pecuarista.
         </h1>
         <p className="max-w-xl text-lg text-suave">
-          Compre e venda bezerros, garrotes, novilhas e bois direto com outros pecuaristas, com
-          GTA em dia e reputação verificada.
+          Compre e venda bezerros, garrotes, novilhas e bois direto com outros pecuaristas, sem
+          intermediário.
         </p>
         <Link
           href="/lotes"
