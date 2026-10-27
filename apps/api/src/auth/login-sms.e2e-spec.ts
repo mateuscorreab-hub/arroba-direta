@@ -92,13 +92,14 @@ describe('Login com o código por SMS (e2e)', () => {
 
     expect(comtele.recebidos).toHaveLength(1);
     expect(comtele.recebidos[0]).toMatchObject({
-      caminho: '/api/v2/send',
+      caminho: '/messages/sms/send',
       chave: 'chave-dos-testes',
-      corpo: { Receivers: telefone.slice(3) },
+      // Sem COMTELE_ROTA: a API pediu a lista e usa a premium.
+      corpo: { receivers: [Number(telefone.slice(1))], route: 17 },
     });
     const codigo = comtele.codigoPara(telefone);
     expect(codigo).toMatch(/^\d{6}$/);
-    expect(comtele.recebidos[0].corpo.Content).toBe(`Arroba Direta: seu codigo de acesso e ${codigo}. Nao passe para ninguem.`);
+    expect(comtele.recebidos[0].corpo.message).toBe(`Arroba Direta: seu codigo de acesso e ${codigo}. Nao passe para ninguem.`);
 
     const [salvo] = await db.select().from(codigosLogin).where(eq(codigosLogin.telefone, telefone));
     expect(salvo).toMatchObject({ porSms: true, ip });
@@ -115,7 +116,7 @@ describe('Login com o código por SMS (e2e)', () => {
     await pedir(telefone, ip).expect(201);
     const primeiro = comtele.codigoPara(telefone)!;
 
-    comtele.falhas = [{ status: 400, corpo: { Success: false, Message: 'é necessário ao menos 1 créditos.' } }];
+    comtele.falhas = [{ status: 400, corpo: { hasError: true, message: 'é necessário ao menos 1 créditos.' } }];
     expect((await pedir(telefone, ip).expect(503)).body).toEqual(SEM_SMS);
     const recusado = comtele.codigoPara(telefone)!;
     expect(recusado).not.toBe(primeiro);

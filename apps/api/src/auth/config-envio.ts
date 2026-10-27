@@ -11,10 +11,7 @@ export type ModoEnvio = 'teste' | 'sms';
 /** Conta na Comtele, que leva o SMS. */
 export interface ConfigComtele {
   chave: string;
-  /**
-   * Id da rota na API do painel novo (portal.comtele.com.br). Sem ela, usa a API do painel antigo
-   * (sms.comtele.com.br), que não pede rota.
-   */
+  /** Id da rota de envio. Sem ele, a API pede a lista de rotas à Comtele e usa a premium. */
   rota: number | null;
   /** Base da API (sem "/" no fim). Muda só nos testes, para um servidor falso. */
   apiBase: string;
@@ -33,8 +30,7 @@ export const CONFIG_ENVIO = Symbol('CONFIG_ENVIO');
 
 export const SMS_POR_DIA_PADRAO = 100;
 const SEGREDO_MINIMO = 32;
-const ONDE_FICA_A_CHAVE =
-  'fica no painel da Comtele: no antigo, em API > Chave de API; no novo, em Configurações > Chaves de API';
+const ONDE_FICA_A_CHAVE = 'fica no painel da Comtele, portal.comtele.com.br, no menu API';
 
 /**
  * Lê CODIGO_MODO, CODIGO_SEGREDO, CODIGO_SMS_POR_DIA e, com SMS, COMTELE_API_KEY e COMTELE_ROTA.
@@ -76,18 +72,13 @@ function lerComtele(env: Record<string, string | undefined>): ConfigComtele {
   }
 
   const textoRota = env.COMTELE_ROTA?.trim();
-  const rota = textoRota ? Number(textoRota) : null;
-  if (rota !== null && (!Number.isInteger(rota) || rota < 1)) {
-    throw new Error('COMTELE_ROTA inválida. Use o número da rota (ou apague a variável no painel antigo).');
+  if (textoRota && !/^[1-9]\d*$/.test(textoRota)) {
+    throw new Error('COMTELE_ROTA inválida. Use o número da rota, ou apague a variável para a API escolher a rota sozinha.');
   }
+  const rota = textoRota ? Number(textoRota) : null;
 
   const base = env.COMTELE_API_BASE?.trim();
-  const apiBase = base
-    ? base.replace(/\/+$/, '')
-    : rota === null
-      ? 'https://sms.comtele.com.br'
-      : 'https://api.comtele.com.br';
-  return { chave, rota, apiBase };
+  return { chave, rota, apiBase: base ? base.replace(/\/+$/, '') : 'https://api.comtele.com.br' };
 }
 
 function lerModo(env: Record<string, string | undefined>): ModoEnvio {
