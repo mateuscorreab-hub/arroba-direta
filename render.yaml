@@ -1,12 +1,12 @@
-# Versão de teste no Render (plano grátis).
+# Arroba Direta no Render.
 # Como usar: no painel do Render, "New > Blueprint", escolha este repositório e confirme.
 # Saem três serviços (API, site e app no navegador) e um banco Postgres.
-# Limites do plano grátis: a API "dorme" após 15 min sem uso (a primeira abertura leva ~1 min)
-# e o banco grátis expira 30 dias após criado.
+# Os serviços estão no plano grátis: a API "dorme" após 15 min sem uso (a primeira abertura leva ~1 min).
+# O banco é pago (US$ 6 por mês, 256 MB de memória e 1 GB de disco): o grátis expira 30 dias após criado.
 
 databases:
   - name: arroba-db
-    plan: free
+    plan: basic-256mb
     databaseName: arroba_direta
     user: arroba
 
