@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -98,6 +98,14 @@ function PerfilLogado({ usuario }: { usuario: Eu }) {
         }}
       />
       <Botao titulo="Sair" variante="discreto" onPress={sessao.sair} />
+      <View style={estilos.legal}>
+        <Link href="/termos" style={[estilos.link, { color: tema.textSecondary }]}>
+          Termos de uso
+        </Link>
+        <Link href="/privacidade" style={[estilos.link, { color: tema.textSecondary }]}>
+          Política de privacidade
+        </Link>
+      </View>
     </View>
   );
 }
@@ -108,4 +116,6 @@ const estilos = StyleSheet.create({
   bloco: { gap: Spacing.three },
   cartao: { borderWidth: 1, borderRadius: 14, padding: Spacing.three, gap: Spacing.one },
   negrito: { fontWeight: '700' },
+  legal: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.four },
+  link: { fontSize: 15, textDecorationLine: 'underline' },
 });

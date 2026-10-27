@@ -12,7 +12,7 @@ import {
 import { ZodPipe } from '../comum/zod.pipe.js';
 import { AuthService, paraEu, type Usuario } from './auth.service.js';
 import { AutenticadoGuard } from './autenticado.guard.js';
-import { ipDoCliente } from './ip-do-cliente.js';
+import { ipCompleto, ipDoCliente } from './ip-do-cliente.js';
 import { SessaoId, UsuarioLogado } from './usuario-logado.decorator.js';
 
 @Controller()
@@ -26,8 +26,8 @@ export class AuthController {
 
   @Post('auth/entrar')
   @HttpCode(200)
-  entrar(@Body(new ZodPipe(entrarSchema)) { telefone, codigo }: Entrar) {
-    return this.auth.entrar(telefone, codigo);
+  entrar(@Body(new ZodPipe(entrarSchema)) { telefone, codigo }: Entrar, @Req() req: Request) {
+    return this.auth.entrar(telefone, codigo, ipCompleto(req));
   }
 
   @Post('auth/sair')

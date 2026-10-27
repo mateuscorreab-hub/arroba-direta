@@ -22,6 +22,8 @@ export default function RootLayout() {
           <Stack.Screen name="meus-anuncios" options={{ title: 'Meus anúncios', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="conversa/[id]/index" options={{ title: 'Conversa', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="conversa/[id]/proposta" options={{ title: 'Proposta', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="termos" options={{ title: 'Termos de uso', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="privacidade" options={{ title: 'Privacidade', headerBackTitle: 'Voltar' }} />
         </Stack>
       </ThemeProvider>
     </ProvedorSessao>

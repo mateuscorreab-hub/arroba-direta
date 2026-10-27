@@ -90,6 +90,31 @@ export const sessoes = pgTable('sessoes', {
   criadoEm: criadoEm(),
 });
 
+export const eventoAcessoEnum = pgEnum('evento_acesso', ['entrada', 'uso']);
+
+/**
+ * Registros de acesso que o Marco Civil (Lei 12.965/2014, art. 15) manda guardar por 6 meses: data, hora e
+ * IP de cada entrada e, no máximo uma vez por hora, de cada sessão em uso. O telefone fica aqui para o
+ * registro valer mesmo depois que a conta for apagada. Mais velhos que 6 meses são apagados
+ * (`src/auth/registros-acesso.service.ts`).
+ */
+export const registrosAcesso = pgTable(
+  'registros_acesso',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    usuarioId: uuid('usuario_id').references(() => usuarios.id, { onDelete: 'set null' }),
+    sessaoId: uuid('sessao_id').references(() => sessoes.id, { onDelete: 'set null' }),
+    telefone: text('telefone').notNull(),
+    evento: eventoAcessoEnum('evento').notNull(),
+    ip: text('ip'),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    index('registros_acesso_telefone_idx').on(t.telefone, t.criadoEm),
+    index('registros_acesso_criado_idx').on(t.criadoEm),
+  ],
+);
+
 export const lotes = pgTable(
   'lotes',
   {

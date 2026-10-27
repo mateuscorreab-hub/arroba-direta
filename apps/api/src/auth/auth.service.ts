@@ -17,7 +17,7 @@ import {
   type RespostaSolicitarCodigo,
 } from '@arroba/shared';
 import { DB, type Db } from '../db/db.module.js';
-import { codigosLogin, sessoes, usuarios } from '../db/schema.js';
+import { codigosLogin, registrosAcesso, sessoes, usuarios } from '../db/schema.js';
 import { CONFIG_ENVIO, type ConfigEnvio } from './config-envio.js';
 import { ENVIO_SMS, finalDoTelefone, SmsRecusado, textoDoSms, type EnvioSms } from './envio-sms.js';
 
@@ -134,7 +134,8 @@ export class AuthService {
     };
   }
 
-  async entrar(telefone: string, codigo: string): Promise<RespostaEntrar> {
+  /** `ip` é o IP completo, que fica no registro de acesso da entrada (Marco Civil, art. 15). */
+  async entrar(telefone: string, codigo: string, ip: string | null): Promise<RespostaEntrar> {
     const resultado = await this.db.transaction(async (tx) => {
       // Só vale o código mais recente entre os que chegaram (com SMS, um código recusado pela
       // Comtele nunca passa a valer). A linha fica travada até o fim, então tentativas
@@ -178,12 +179,16 @@ export class AuthService {
       await tx.insert(usuarios).values({ telefone }).onConflictDoNothing({ target: usuarios.telefone });
       const [usuario] = await tx.select().from(usuarios).where(eq(usuarios.telefone, telefone));
       const token = randomBytes(32).toString('base64url');
-      await tx.insert(sessoes).values({
-        usuarioId: usuario.id,
-        tokenHash: sha256(token),
-        expiraEm: sql`now() + interval '90 days'`,
-        porSms: atual.porSms,
-      });
+      const [sessao] = await tx
+        .insert(sessoes)
+        .values({
+          usuarioId: usuario.id,
+          tokenHash: sha256(token),
+          expiraEm: sql`now() + interval '90 days'`,
+          porSms: atual.porSms,
+        })
+        .returning({ id: sessoes.id });
+      await tx.insert(registrosAcesso).values({ usuarioId: usuario.id, sessaoId: sessao.id, telefone, evento: 'entrada', ip });
       return { token, usuario: paraEu(usuario) };
     });
 
