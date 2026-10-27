@@ -19,8 +19,8 @@ Limites de `POST /auth/codigo`: 5 pedidos por hora por telefone, sempre. Com SMS
 Ligar o SMS:
 
 1. Conta na Comtele (aceita CPF), com crédito pré-pago e sem recarga automática: o saldo é o teto de gasto.
-2. No Render (arroba-api > Environment), `COMTELE_API_KEY` com a chave do painel da Comtele. No painel novo (portal.comtele.com.br), também `COMTELE_ROTA` com o número da rota; sem ela a API usa a do painel antigo (sms.comtele.com.br). `CODIGO_SEGREDO` o Render cria sozinho (`generateValue` no `render.yaml`).
-3. Trocar `CODIGO_MODO` para `sms` no `render.yaml`. Com `sms` e sem `COMTELE_API_KEY` ou `CODIGO_SEGREDO`, a API não sobe e o log diz o que falta.
+2. No Render (arroba-api > Environment), `COMTELE_API_KEY` com a chave do painel da Comtele (portal.comtele.com.br, API > Chaves de API; sem expirar por inatividade). `COMTELE_ROTA` é opcional: o painel não mostra o id da rota, então sem ela a API pede a lista (`GET /routes`) no primeiro SMS e usa a única rota com "premium" no nome. Se não achar uma só, nenhum SMS sai e o log lista as rotas para escolher. `CODIGO_SEGREDO` o Render cria sozinho (`generateValue` no `render.yaml`).
+3. `CODIGO_MODO=sms` no `render.yaml` (já está). Com `sms` e sem `COMTELE_API_KEY` ou `CODIGO_SEGREDO`, a API não sobe e o log diz o que falta.
 4. As sessões abertas na versão de teste deixam de valer (`sessoes.por_sms`, migração 0007): todo mundo entra de novo com o código por SMS. As contas e anúncios criados na versão de teste continuam no banco; como nela qualquer um entrava em qualquer número, apague esses dados (ou comece com um banco novo) antes de chamar gente de verdade.
 
 O teto do dia (`CODIGO_SMS_POR_DIA`, padrão 100) muda no painel do Render (arroba-api > Environment), sem mexer no `render.yaml`. Só algarismos, sem ponto (`1000`, não `1.000`).

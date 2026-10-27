@@ -34,18 +34,18 @@ describe('lerConfigEnvio', () => {
       modo: 'sms',
       segredo: SEGREDO,
       limiteDiario: SMS_POR_DIA_PADRAO,
-      comtele: { chave: 'chave-da-comtele', rota: null, apiBase: 'https://sms.comtele.com.br' },
+      comtele: { chave: 'chave-da-comtele', rota: null, apiBase: 'https://api.comtele.com.br' },
     });
   });
 
-  it('com SMS, exige a chave da Comtele e usa a API do painel novo quando há rota', () => {
+  it('com SMS, exige a chave da Comtele e aceita o número da rota', () => {
     const sms = { CODIGO_MODO: 'sms', CODIGO_SEGREDO: SEGREDO };
     expect(() => lerConfigEnvio(sms)).toThrow(/CODIGO_MODO=sms precisa de COMTELE_API_KEY \(fica no painel da Comtele/);
     expect(() => lerConfigEnvio({ ...sms, COMTELE_API_KEY: 'abc def' })).toThrow(/COMTELE_API_KEY inválida/);
     expect(() => lerConfigEnvio({ ...sms, COMTELE_API_KEY: 'abc def' })).not.toThrow(/abc def/);
     const novo = lerConfigEnvio({ ...sms, COMTELE_API_KEY: 'k', COMTELE_ROTA: ' 17 ' });
     expect(novo.modo === 'sms' && novo.comtele).toEqual({ chave: 'k', rota: 17, apiBase: 'https://api.comtele.com.br' });
-    for (const ruim of ['0', 'premium', '1.5']) {
+    for (const ruim of ['0', 'premium', '1.5', '1e3', '-2']) {
       expect(() => lerConfigEnvio({ ...sms, COMTELE_API_KEY: 'k', COMTELE_ROTA: ruim })).toThrow(/COMTELE_ROTA inválida/);
       expect(() => lerConfigEnvio({ ...sms, COMTELE_API_KEY: 'k', COMTELE_ROTA: ruim })).not.toThrow(ruim);
     }
